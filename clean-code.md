@@ -32,8 +32,10 @@ Use consistent naming styles throughout your codebase to improve readability and
 
     * **Flat file structures**: C codebases often have flatter module systems and use underscores to separate words in filenames to increase clarity and consistency (e.g., `file_io.c`, `string_utils.h`).
   * ✅ `device_driver.h`, `data_utils.c`
-* **kebab-case** – Never use in code identifiers (only acceptable for markdown files or CLI arguments).
-  * ✅ `clean-code.md`, `git --no-pager --html-path`
+* **kebab-case** – Never use in code identifiers (only acceptable for markdown files, CLI arguments, project/repo and git branch names).
+  * ✅ `clean-code.md`, `git --no-pager --html-path`, `verna-software-guidelines`
+  * The **Git repository** name should match the project name to maintain consistency and clarity across development, documentation, and deployment processes. (e.g, `adrv9026-interface`)
+  * **Git branch** names should follow a consistent naming convention and clearly reflect the purpose of the branch. They must use **kebab-case** and be descriptive. (e.g., `release`, `develop`, `config-fix`)
 
 * **Sometimes there are some exceptions:**
 
@@ -148,7 +150,7 @@ Choosing clear, descriptive names helps readers quickly understand the purpose a
   }
     ```
 
-### Writing Self-Documenting and Maintainable Code
+## Writing Self-Documenting and Maintainable Code
 
 Descriptive names reduce the need for comments and eliminate ambiguity. Always aim to make your code **self-documenting**.
 
@@ -289,7 +291,7 @@ Descriptive names reduce the need for comments and eliminate ambiguity. Always a
 
 * Leave the code **cleaner than you found it**. Make small refactorings as you touch existing code.
 
-### The SOLID Principles
+## The SOLID Principles
 
 The SOLID principles guide object-oriented design toward maintainability and extensibility:
 
@@ -311,3 +313,37 @@ The SOLID principles guide object-oriented design toward maintainability and ext
   *Example 1: Inject a **`DataSourceInterface`** rather than using a concrete **`FileReader`**.*
   *Example 2: Inject a **`UdpSocketInterface`** into a class which is using sockets instead of directly using **`QUdpSocket`**.*
   *Example 3: Use a **`Logger`** class that uses **`QFile`** internally rather than writing logs directly with **`QFile`**.*
+
+## Project Layout
+
+The project root directory should be organized in a consistent and predictable way to improve maintainability and team collaboration.
+
+```bash
+/project-root
+├── src/                                  # Main source code (typically header and source files)
+│   ├── setting/                          # Application configuration and initialization logic
+│   └── gui/                              # GUI components (if applicable)
+│       ├── qml/                          # QML files organized by GUI hierarchy
+│       └── images/                       # Images used in GUI (icons, assets, etc.)
+├── submodule/                            # Git submodules or third-party dependencies
+├── lib/                                  # External or compiled libraries
+├── release/                              # Release build output
+├── debug/                                # Debug build output
+├── repo-name.pro                         # Qt project file (QMake)
+├── setting.ini                           # Runtime or user configuration (optional)
+├── Makefile                              # Optional makefile (if not using CMake)
+├── .gitignore                            # Git ignored file patterns
+├── .gitmodules                           # Git submodule metadata (if submodules used)
+├── icon.ico                              # Application icon (if GUI and packaged)
+├── README.md                             # Main project description and entry doc
+├── Project_Name_User_Manual_V1.0.0.pdf   # User manual (optional, versioned)
+└── note.txt                              # Optional note file (more info)
+```
+
+- **repo-name.pro**: Main `.pro` file used when building with QMake.
+- **setting.ini**: Configuration and grouped setting values loaded at runtime (if the app supports customization).
+- **.gitignore** and **.gitmodules**: Git-specific project metadata.
+- **icon.ico**: Icon for the app, typically used in packaging and GUI projects.
+- **Project_Name_User_Manual_V1.0.0.pdf**: Optional user-facing documentation file, versioned.
+
+
