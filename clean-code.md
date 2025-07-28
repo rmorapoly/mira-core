@@ -1,4 +1,4 @@
-# Verna C++/Qt Guidelines Including Standards & Clean Code
+# Clean Code
 
 ## Purpose
 
@@ -8,99 +8,118 @@ To ensure consistent, maintainable, high-quality C++ and Qt code across all Vern
 
 This guide applies to all developers working on C++/Qt projects using Qt Creator. It defines conventions for code structure, design clarity, modern C++ practices, Qt usage, documentation, testing, and collaboration.
 
-## Core Guidelines
-
-### Clean Code Principles
-
-#### Named Case Handling
+## Name Conventions
 
 Use consistent naming styles throughout your codebase to improve readability and avoid confusion:
 
 <img src="case.jpg" alt="case.jpg" style="zoom:50%;" />
 
-* **PascalCase** – Use for class names, namespace and enum types.
+* **PascalCase** – Use for class names, namespace, enum types and C++ header and source files.
+  * ✅ `UserManager`, `LoginDialog`, `DatabaseManager.h`, `DeviceHandler.cpp`
+* **camelCase** – Use for variables, function names, enum member names, object instances and folder/directory names.
+  * ✅ `retryCount`, `loadFromFile()`, `dataStream`, `src/`, `setting/`
+* **snake\_case** – Avoid in general Verna C++ style unless interfacing with C header and source files or APIs or legacy systems.
+  * **A legacy system is**:
 
-  * ✅ `UserManager`, `LoginDialog`
-* **camelCase** – Use for variables, function names, enum member names and object instances.
+      A software system, technology, or application that is outdated, no longer actively developed, or built with older tools or standards, but is still in use; often because it's critical to the business or too expensive to replace.
+      * 🛠️ Examples in our context:
+        * A module written in C from 2002 still used in your Qt-based app
+        * A binary .dll or .so you must interface with, **but can't modify**
+        * Hardware access libraries provided by third parties that expose C-style APIs
+  
+  🐍 Why **snake_case** is often used for C headers/sources?
+    * **Historical convention**: In C (as opposed to C++), **snake_case** has been the traditional norm — including in system headers (e.g., `stdio.h`, `stdint.h`).
 
-  * ✅ `retryCount`, `loadFromFile()`, `dataStream`
-* **snake\_case** – Avoid in general Verna C++ style unless interfacing with C APIs or legacy systems.
-* **kebab-case** – Never use in code identifiers (only acceptable for filenames or CLI arguments).
+    * **Flat file structures**: C codebases often have flatter module systems and use underscores to separate words in filenames to increase clarity and consistency (e.g., `file_io.c`, `string_utils.h`).
+  * ✅ `device_driver.h`, `data_utils.c`
+* **kebab-case** – Never use in code identifiers (only acceptable for markdown files or CLI arguments).
+  * ✅ `clean-code.md`, `git --no-pager --html-path`
 
-Sometimes there are some exceptions:
+* **Sometimes there are some exceptions:**
 
-* Use **CAPITALCASE** for abbreviations in class names (e.g., `FPGA`).
-* When an abbreviation is combined with another word, separate them using an underscore for readability, resulting in a **MIXED\_Case** format (e.g., `FPGA_Interface`).
-* When instantiating such a class which is named **MIXED\_Case** or using it as an object name, convert it to camelCase (e.g., `fpgaInterface`).
+  * Use **CAPITALCASE** for abbreviations in class names (e.g., `FPGA`).
+  * When an abbreviation is combined with another word, separate them using an underscore for readability, resulting in a **MIXED\_Case** format (e.g., `FPGA_Interface`).
+  * When instantiating such a class which is named **MIXED\_Case** or using it as an object name, convert it to camelCase (e.g., `fpgaInterface`).
+  * Use **MIXED_Case** for raw or binary files (e.g., `bin`, `.csv`, `.log`)  with timestamps or descriptors.
+    * ✅ `BoardLog_2025-06-07_18-40-06.bin`, `Pdws_2025-09-08_10-35-15.csv`
+    * ❌ `boardlog-20250607.bin`, `Pdws2025.csv`
+  * For libraries we develop (such as `.dll`, `.lib` or `.so` files), use **MIXED_Case** naming to reflect the module name and version clearly.  
+    * ✅ `ADRV9026_Interface_V1.0.8.so`
+  * The best case style for macros in C++ is **ALL_CAPS_SNAKE_CASE**, which is widely adopted and clearly distinguishes macros from variables, functions, and other identifiers.
+    ```cpp
+    #if defined(ADRV9026_INTERFACE_LIBRARY)
+    #  define ADRV9026_INTERFACE_EXPORT Q_DECL_EXPORT
+    #elif defined(ADRV9026_INTERFACE_SOURCE)
+    #  define ADRV9026_INTERFACE_EXPORT
+    #else
+    #  define ADRV9026_INTERFACE_EXPORT Q_DECL_IMPORT
+    #endif
+    ```
 
-#### Using Meaningful Names
+### Using Meaningful Names
 
 Choosing clear, descriptive names helps readers quickly understand the purpose and behavior of code. Favor intent-revealing names over brevity or ambiguity. Don't fear writing longer or more specific names—**clarity is always worth the few extra keystrokes!**
 
-##### Variable Names (Are nouns in 99% of cases)
+* **Variable** Names (Are nouns in 99% of cases)
 
-* ✅ `userAge` instead of ❌ `ua`
-* ✅ Avoid prefixes like `m_` (for member variables), e.g., use `count` instead of ❌ `m_count`
-* ✅ `QHash<ModelSpecType, ModelSpec*> typeToSpecs;` or `typeSpecHash` in the `Model` class — descriptive and contextual (for member variables)
-* ✅ `retryCount` instead of ❌ `r`
-* ✅ `boardId` instead of ❌ `modelBoardId` (when used inside `ModelInterface` class — class name already provides context)
+  * ✅ `userAge` instead of ❌ `ua`
+  * ✅ Avoid prefixes like `m_` (for member variables), e.g., use `count` instead of ❌ `m_count`
+  * ✅ `QHash<ModelSpecType, ModelSpec*> typeToSpecs;` or `typeSpecHash` in the `Model` class — descriptive and contextual (for member variables)
+  * ✅ `retryCount` instead of ❌ `r`
+  * ✅ `boardId` instead of ❌ `modelBoardId` (when used inside `ModelInterface` class — class name already provides context)
 
-##### Function Names Including Qt Sltos (In 95% of cases non-signal functions are verbs)
+* **Function** Names Including **Qt Sltos** (In 95% of cases non-signal functions are verbs)
 
-Function names must clearly describe what the function does. A function should express its single responsibility through its name, avoiding vague or overly general labels.
+  Function names must clearly describe what the function does. A function should express its single responsibility through its name, avoiding vague or overly general labels.
 
-* ✅ `fetchUserData()` instead of ❌ `getData()`
+  * ✅ `fetchUserData()` instead of ❌ `getData()`
 
-* ✅ `fetchUserData()` instead of ❌ `getData()`
+  * ✅ `fetchUserData()` instead of ❌ `getData()`
 
-* ✅ `initializeDatabase()` instead of ❌ `init()`
+  * ✅ `initializeDatabase()` instead of ❌ `init()`
 
-##### Qt Signal Names
+* **Qt Signal** Names
 
-Signal names must clearly describe what the signal does.
+  * Signal names must clearly describe what the signal does.
+  * **Use Event-Driven and State-Related Names**
+  * Use **gerund nouns** or **descriptive phrases** to name variables or signals that represent ongoing states or events. These names should clearly indicate what the variable or signal represents and how it behaves within the system.
 
-**Use Event-Driven and State-Related Names**
+    * ✅ `newValue` – indicates a new value that will be emitted or processed.
+    * ✅ `specNameChanged` – clearly communicates that the specification name has changed (typical signal naming).
+    * ❌ `val`, `reportStatus`, `flag`, `goFoo` – vague and not intent-revealing.
 
-Use **gerund nouns** or **descriptive phrases** to name variables or signals that represent ongoing states or events. These names should clearly indicate what the variable or signal represents and how it behaves within the system.
+  This convention improves clarity, especially in signal/slot mechanisms or observer patterns commonly used in Qt. It ensures that event-triggered or data-carrying names are self-explanatory and clearly aligned with the application's logic flow.
 
-* ✅ `newValue` – indicates a new value that will be emitted or processed.
-* ✅ `specNameChanged` – clearly communicates that the specification name has changed (typical signal naming).
-* ❌ `val`, `reportStatus`, `flag`, `goFoo` – vague and not intent-revealing.
+* **Class** Names
 
-This convention improves clarity, especially in signal/slot mechanisms or observer patterns commonly used in Qt. It ensures that event-triggered or data-carrying names are self-explanatory and clearly aligned with the application's logic flow.
+  Class names should be **nouns**, representing objects, responsibilities, or concepts. They should describe what the class is, not what it does.
 
-##### Class Names
+  * ✅ `PaymentProcessor` instead of ❌ `Processor`
+  * ✅ `LoginManager` instead of ❌ `Manager`
 
-Class names should be **nouns**, representing objects, responsibilities, or concepts. They should describe what the class is, not what it does.
+  When classes are nested within a namespace, avoid repeating the namespace name in the class name. Let the namespace provide the context.
 
-* ✅ `PaymentProcessor` instead of ❌ `Processor`
-* ✅ `LoginManager` instead of ❌ `Manager`
+  * ✅ `Verna::Core::Logger` instead of ❌ `Verna::Core::CoreLogger`
+  * ✅ `PaymentProcessor` instead of ❌ `Processor`
+  * ✅ `LoginManager` instead of ❌ `Manager`
 
-When classes are nested within a namespace, avoid repeating the namespace name in the class name. Let the namespace provide the context.
+* **Namespace** Names
 
-* ✅ `Verna::Core::Logger` instead of ❌ `Verna::Core::CoreLogger`
+  The purpose of namespaces in C++ is to avoid name clashes. And that is it. The library stuff you mentioned is the application, which is not the only one.
 
-* ✅ `PaymentProcessor` instead of ❌ `Processor`
+  * ✅ `JuyanCore::Model` instead of ❌ `JuyanCoreModel`
+  * ✅ `Network::Sockets` instead of ❌ `NetworkSockets`
 
-* ✅ `LoginManager` instead of ❌ `Manager`
+* **Enum** & **Enum Class** Names
 
-##### Namespace Names
+  Usually **camelCase**
 
-The purpose of namespaces in C++ is to avoid name clashes. And that is it. The library stuff you mentioned is the application, which is not the only one.
+  * ✅ `enum class Status { success, failure }` instead of ❌ `enum class S { OK, ERR }`
+  * ✅ `ErrorCode::fileNotFound` instead of ❌ `ErrorCode:FILE_NOT_FOUND`
 
-* ✅ `JuyanCore::Model` instead of ❌ `JuyanCoreModel`
-* ✅ `Network::Sockets` instead of ❌ `NetworkSockets`
+* **Enum Member** Names
 
-##### Enum & Enum Class Names
-
-Usually camelCase
-
-* ✅ `enum class Status { success, failure }` instead of ❌ `enum class S { OK, ERR }`
-* ✅ `ErrorCode::FileNotFound` instead of ❌ `ErrorCode::E1`
-
-##### Enum Member Names
-
-* ✅ `enum Connection { connected, diconnected }` instead of ❌ `enum class Connection { Connected, Diconnected }`
+  * ✅ `enum Connection { connected, diconnected }` instead of ❌ `enum class Connection { Connected, Diconnected }`
 
 * ✅ general example:
 
@@ -119,10 +138,17 @@ Usually camelCase
           jammer0          = 9,
           jammer1          = 10
       };
+      class ModelInterface {
+          ModelInterface(ModelType type);
+      public:
+          ModelType getType() const;
+      private:
+          ModelType type;
+      };
   }
-  ```
+    ```
 
-#### Writing Self-Documenting and Maintainable Code
+### Writing Self-Documenting and Maintainable Code
 
 Descriptive names reduce the need for comments and eliminate ambiguity. Always aim to make your code **self-documenting**.
 
@@ -263,11 +289,11 @@ Descriptive names reduce the need for comments and eliminate ambiguity. Always a
 
 * Leave the code **cleaner than you found it**. Make small refactorings as you touch existing code.
 
-#### The SOLID Principles
+### The SOLID Principles
 
 The SOLID principles guide object-oriented design toward maintainability and extensibility:
 
-<img src="C:\Users\r.moradi\Pictures\solid.png" style="zoom:50%;" />
+<img src="solid.png" style="zoom:50%;" />
 
 * **S**ingle Responsibility Principle: A class should have one, and only one, reason to change.
   *Example: A **`Logger`** class should only handle logging, not perform formatting or file I/O.*
