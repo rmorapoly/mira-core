@@ -1,11 +1,11 @@
 # Git Guidelines
 
 ## Git Branching Model
-
+  
 At Verna, we follow a structured Git branching strategy to ensure clarity, stability, and parallel development. This model includes long-lived branches and short-lived prefixed branches for specific tasks.
 
 <p align="center">
-  <img src="git-branching.webp" alt="git-branching.webp" style="zoom:50%;" />
+  <img src="img/git-branching.png" alt="git-branching.webp" style="zoom:50%;" />
 </p>
 
 ### 📌 Long-Lived Branches
@@ -44,3 +44,4 @@ git checkout -b feature/login-page develop
 git checkout develop
 git merge --no-ff feature/login-page
 git branch -d feature/login-page
+```
