@@ -254,12 +254,19 @@ Here are some overall commit messgae examples:
 
 > **Important:** This repo may be integrated into other project as a separate remote.
 
+- After cloning the repository, add and fetch this repo as new remote and call it `base`:
+  
+```bash
+git remote add base https://github.com/rmorapoly/mira-base.git
+git fetch base
+```
+
 - The first time you merge this repo into your project, Git may detect **unrelated histories**.
 - To resolve this, use the command line:
 
 ```bash
 git merge new-remote/main --allow-unrelated-histories
-
+```
 
 ## Summary
 
