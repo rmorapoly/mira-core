@@ -250,6 +250,17 @@ Here are some overall commit messgae examples:
 
 ---
 
+## Merging Base/Template Repo Updates
+
+> **Important:** This repo may be integrated into other project as a separate remote.
+
+- The first time you merge this repo into your project, Git may detect **unrelated histories**.
+- To resolve this, use the command line:
+
+```bash
+git merge new-remote/main --allow-unrelated-histories
+
+
 ## Summary
 
 This branching model is valuable because of its clear “big picture” structure. The visual diagram is an elegant mental model for branching and releasing processes and also writing good commit messages is an extremely beneficial skill to develop, and it helps you communicate and collaborate with your team.
