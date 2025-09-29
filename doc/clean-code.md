@@ -32,9 +32,15 @@ Use consistent naming styles throughout your codebase to improve readability and
 
     * **Flat file structures**: C codebases often have flatter module systems and use underscores to separate words in filenames to increase clarity and consistency (e.g., `file_io.c`, `string_utils.h`).
   * ✅ `device_driver.h`, `data_utils.c`
-* **kebab-case** – Never use in code identifiers (only acceptable for markdown files, CLI arguments, project/repo and git branch names).
+* **kebab-case** – Never use in code identifiers; only acceptable for non-code files, markdown files, CLI arguments, project/repo, resource files and git branch names.
   * ✅ `clean-code.md`, `git --no-pager --html-path`, `verna-software-guidelines`
-  * The **Git repository** name should match the project name to maintain consistency and clarity across development, documentation, and deployment processes. (e.g, `adrv9026-interface`)
+  * Why kebab-case works well for images:
+    * Lowercase avoids OS-specific case-sensitivity issues (Windows vs Linux).
+    * Dashes are URL- and web-friendly (no need for encoding like spaces).
+    * ✅ `left-arrow.png`, `cancel-box.jpg`, `dashboard-dark.webp`
+  * For non-code files like JSON, config, CSV, TXT, XML, YAML, or other data/resource files, the same principle applies.
+  * ✅ `setting.ini`, `rx-devices.cfg`, `df-bias.json`, `user-pref.yaml`, `theme.xml`, `dev-list.csv`, `configs.txt`
+  * The **Git repository** name should match the project name to maintain consistency and clarity across development, documentation, and deployment processes (e.g., `fpga-interface` for both project folder name and git repo name the git url ends with `fpga-interface.git` and also there is `fpga-interface.pro` or `fpga-interface.pri` in the root dir).
   * **Git branch** names should follow a consistent naming convention and clearly reflect the purpose of the branch. They must use **kebab-case** and be descriptive. (e.g., `release`, `develop`, `config-fix`)
 
 * **Sometimes there are some exceptions:**
@@ -42,9 +48,10 @@ Use consistent naming styles throughout your codebase to improve readability and
   * Use **CAPITALCASE** for abbreviations in class names (e.g., `FPGA`).
   * When an abbreviation is combined with another word, separate them using an underscore for readability, resulting in a **MIXED\_Case** format (e.g., `FPGA_Interface`).
   * When instantiating such a class which is named **MIXED\_Case** or using it as an object name, convert it to camelCase (e.g., `fpgaInterface`).
-  * Use **MIXED_Case** for raw or binary files (e.g., `bin`, `.csv`, `.log`)  with timestamps or descriptors.
+  * Use **MIXED_Case** for raw or binary files (e.g., `bin`, `.csv`, `.log`)  with timestamps or descriptors. (For config/data files that ARE part of the repository (manually maintained, shipped with app) Usually use **kebab-case** as it is mentioned and also *the files which are part of the repo do not need timestamps*.
     * ✅ `BoardLog_2025-06-07_18-40-06.bin`, `Pdws_2025-09-08_10-35-15.csv`
     * ❌ `boardlog-20250607.bin`, `Pdws2025.csv`
+    * ✅ `pa-list.csv`, `rx-scenarios.bin`
   * For libraries we develop (such as `.dll`, `.lib` or `.so` files), use **MIXED_Case** naming to reflect the module name and version clearly.  
     * ✅ `ADRV9026_Interface_V1.0.8.so`
   * The best case style for macros in C++ is **ALL_CAPS_SNAKE_CASE**, which is widely adopted and clearly distinguishes macros from variables, functions, and other identifiers.
