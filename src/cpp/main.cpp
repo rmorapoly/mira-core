@@ -1,40 +1,29 @@
 #include <QApplication>
+#include <QQmlContext>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QFontDatabase>
 #include <QDebug>
-#include <QStyle>
-//#include "MainCallback.h"
-//#include "Setting.h"
-#include <QOperatingSystemVersion>
-#include <QQmlContext>
-//#include "Root.h"
-#include <QDateTime>
-//#include "InitWindow.h"
-//#include "Tester.h"
-//#include "JsonFileManager.h"
-#include <QTimer>
+#include "Test.h"
 
 int main(int argc, char *argv[])
 {
     qInfo() << "Application started";
+    TESTLIB_SELFCOVERAGE_START(Test)
+    QT_PREPEND_NAMESPACE(QTest::Internal::callInitMain)<Test>();
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
     QQuickStyle::setStyle("Material");
     QApplication app(argc, argv);
-//    app.setOrganizationName(Setting::applicationInformation.organizationName);
-//    app.setOrganizationDomain(Setting::applicationInformation.organizationDomain);
-//    InitWindow initWindow;
-//    initWindow.show();
-//    Root::getInstance()->init();
-//    Tester tester;
-//    JsonFileManager jsonFileManager;
+    app.setOrganizationName(ORGANIZATION_NAME);
+    app.setOrganizationDomain(ORGANIZATION_DOMAIN);
+    Test test;
+    QTEST_SET_MAIN_SOURCE_PATH
     QQmlApplicationEngine engine;
     engine.addImportPath(":/imports");
     engine.rootContext()->setContextProperty("opertingSystem", (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows ? "windows" : "unix"));
-//    engine.rootContext()->setContextProperty("jsonFileManager", &jsonFileManager);
     const QUrl url(QStringLiteral("qrc:/main.qml"));
-//    MainCallback* mainCallback = nullptr;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url/*, &mainCallback*/](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl)
@@ -43,13 +32,9 @@ int main(int argc, char *argv[])
 //            mainCallback = new MainCallback(obj);
         }
     }, Qt::QueuedConnection);
-    QTimer::singleShot(5000, [&engine/*, &initWindow, url*/](){
-//        engine.load(url);
-//        initWindow.close();
-    });
-    int exitCode = app.exec();
-//    if (mainCallback)
-//        delete mainCallback;
+    engine.load(url);
+    auto exitCode = QTest::qExec(&test, argc, argv);
+    exitCode &= app.exec();
     qInfo() << "Application exited with code" << exitCode;
     return exitCode;
 }
