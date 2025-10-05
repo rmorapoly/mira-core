@@ -1,12 +1,25 @@
 TEMPLATE = app
 
-QT += core gui qml quick quickcontrols2 charts positioning location network widgets svg xml printsupport concurrent
+QT +=   core           \
+        testlib        \
+        gui            \
+        qml            \
+        quick          \
+        quickcontrols2 \
+        charts         \
+        positioning    \
+        location       \
+        network        \
+        widgets        \
+        svg            \
+        xml            \
+        printsupport   \
+        concurrent
 
-#CONFIG += object_parallel_to_source
-#CONFIG += console
-
-#QMAKE_LFLAGS += -fuse-ld=lld
-#QMAKE_LFLAGS = -fuse-ld=gold
+CONFIG +=   qt                 \
+            warn_on            \
+            depend_includepath \
+            testcase
 
 win32 {
     DEFINES += WINDOWS_BUILD
@@ -15,11 +28,8 @@ unix {
     DEFINES += UNIX_BUILD
 }
 
-CONFIG(TEST_ENABLED){
-    QT += testlib
-    DEFINES += TEST_ENABLED
-    message("Testing enabled, only enable this feature in development modes");
-}
+#QMAKE_LFLAGS += -fuse-ld=lld
+#QMAKE_LFLAGS = -fuse-ld=gold
 
 #CONFIG(DEVELOPMENT){
 #   DEFINES += DEVELOPMENT
@@ -45,31 +55,17 @@ CONFIG(BUILD_WITH_UNRESOLVED){
     LIBS += -Wl,--as-needed -Wl,--unresolved-symbols=ignore-all
 }
 
-#CONFIG(debug, debug|release ) {
-#    # debug
-#    OBJECTS_DIR = debug
-#    MOC_DIR = debug
-#} else {
-#    # release
-#    OBJECTS_DIR = release
-#    MOC_DIR = release
-#}
-
 allFilesFolders = $$files($$PWD/src/*, true))
-folders = src Libs
+folders = src
 for (item, allFilesFolders): contains(item, [^.]*) : folders += $$item
 
 INCLUDEPATH += $$folders
 
-include($$PWD/src/cpp/cpp.pri)
-
-include($$PWD/src/c/c.pri)
-
-include($$PWD/src/qml/qml.pri)
-
-include($$PWD/src/js/js.pri)
+include($$PWD/src/src.pri)
 
 include($$PWD/lib/lib.pri)
+
+include($$PWD/submodule/submodule.pri)
 
 include($$PWD/version.pri)
 
@@ -84,8 +80,14 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 win32: DEFINES += _GLIBCXX_TXN_SAFE_DYN="" _GLIBCXX_NOTHROW="" # For compatibility to GCC
 
-#win32: RC_ICONS += icon.ico
+TRANSLATIONS += \
+    mira-base_en_US.ts
 
+DISTFILES += \
+    README.md \
+    $$files($$PWD/doc/*.md, true)
+
+#win32: RC_ICONS += icon.ico
 
 
 
