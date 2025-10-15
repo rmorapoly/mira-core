@@ -56,6 +56,8 @@ include($$PWD/src/qml/qml.pri)
 
 include($$PWD/src/js/js.pri)
 
+include($$PWD/submodule/submodule.pri)
+
 include($$PWD/version.pri)
 
 allFilesFolders = $$files($$PWD/src/*, true))
@@ -75,7 +77,3 @@ TRANSLATIONS += \
     verna-software-guidelines_en_US.ts
 
 win32: RC_ICONS += icon.ico
-
-
-
-
