@@ -268,9 +268,62 @@ git fetch base
 git merge new-remote/main --allow-unrelated-histories
 ```
 
-## Ignore File Mode Change
+## 🧭 Git Shows Files as Changed but Contents Are Unchanged
+
+Sometimes Git reports files as **modified** even though their actual contents haven't changed.
+This usually happens due to **line endings**, **file permissions**, or **index inconsistencies**.
+Below are the common causes and fixes.
+
+---
+
+### 🧩 1. Line Ending Differences (LF vs CRLF)
+
+**Most common cause**, especially on Windows.
+
+#### 🔍 Check
+
+```bash
+git diff --ignore-space-at-eol
+```
+
+If this command shows no differences, it's a line ending issue.
+
+#### 🧰 Fix
+
+- Step 1: Configure Git to handle line endings consistently
+
+```bash
+git config core.autocrlf true      # For Windows
+# or
+git config core.autocrlf input     # For macOS / Linux
+```
+
+- Step 2: Re-normalize line endings across the repository
+
+```bash
+git add --renormalize .
+git commit -m "Normalize line endings"
+```
+
+### 🧩 2. Ignore File Mode Change
 
 - Prevent Git from detecting permission(mode) changes as modifications across different operating systems:
+
+#### 🔍 Check
+
+```bash
+git diff --summary
+```
+
+If you see:
+
+```bash
+mode change 100644 => 100755
+```
+
+it's a permission change issue.
+
+#### 🧰 Fix
 
 ```bash
 git config core.fileMode false
