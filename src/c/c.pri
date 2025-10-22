@@ -1,6 +1,6 @@
 CONFIG += c99
 
-QMAKE_CFLAGS += -Wall -Wextra -Wpedantic
+QMAKE_CFLAGS += -Wall
 
 INCLUDEPATH += $$PWD/
 

@@ -28,29 +28,6 @@ unix {
     DEFINES += UNIX_BUILD
 }
 
-#QMAKE_LFLAGS += -fuse-ld=lld
-#QMAKE_LFLAGS = -fuse-ld=gold
-
-#CONFIG(DEVELOPMENT){
-#   DEFINES += DEVELOPMENT
-#}else{
-##    QMAKE_CXXFLAGS += -flto
-##    QMAKE_LFLAGS += -flto
-#}
-
-CONFIG(SANITIZER){
-    CONFIG += sanitizer
-#    QMAKE_CXXFLAGS += -fno-omit-frame-pointer
-    QMAKE_CXXFLAGS += -fsanitize=address
-#    QMAKE_CXXFLAGS += -fsanitize=thread
-    QMAKE_CXXFLAGS += -fsanitize=leak
-    QMAKE_CXXFLAGS += -fsanitize=undefined
-    QMAKE_CXXFLAGS += -fsanitize=return
-    QMAKE_CXXFLAGS += -fsanitize=bounds
-#    QMAKE_CXXFLAGS += -fsanitize=object-size
-    LIBS += -lasan -lubsan
-}
-
 CONFIG(BUILD_WITH_UNRESOLVED){
     LIBS += -Wl,--as-needed -Wl,--unresolved-symbols=ignore-all
 }
