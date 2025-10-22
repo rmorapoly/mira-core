@@ -268,6 +268,14 @@ git fetch base
 git merge new-remote/main --allow-unrelated-histories
 ```
 
+## Ignore File Mode Change
+
+- Prevent Git from detecting permission(mode) changes as modifications across different operating systems:
+
+```bash
+git config core.fileMode false
+```
+
 ## Summary
 
 This branching model is valuable because of its clear “big picture” structure. The visual diagram is an elegant mental model for branching and releasing processes and also writing good commit messages is an extremely beneficial skill to develop, and it helps you communicate and collaborate with your team.
