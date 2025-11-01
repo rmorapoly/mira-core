@@ -8,7 +8,7 @@ VERSION_MINOR        = 0
 VERSION_PATCH        = 0
 VERSION_STRING       = $${VERSION_MAJOR}.$${VERSION_MINOR}.$${VERSION_PATCH}
 # Use \\\x20 as space charachter
-PROJECT_NAME         = Mira\\\x20Base
+PROJECT_NAME         = Mira\\\x20Quick
 ORGANIZATION_NAME    = Mira
 ORGANIZATION_DOMAIN  = Mira.ir
 PROJECT_NAME_CAMEL   = $$replace(PROJECT_NAME,\\\\\\\\x20,)
