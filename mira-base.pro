@@ -1,4 +1,6 @@
-TEMPLATE = app
+TEMPLATE = \
+           app \
+#           lib
 
 QT +=   core           \
         testlib        \
@@ -6,20 +8,31 @@ QT +=   core           \
         qml            \
         quick          \
         quickcontrols2 \
-        charts         \
-        positioning    \
-        location       \
-        network        \
         widgets        \
-        svg            \
-        xml            \
-        printsupport   \
-        concurrent
+#        charts         \
+#        positioning    \
+#        location       \
+#        network        \
+#        svg            \
+#        xml            \
+#        printsupport   \
+#        concurrent
 
 CONFIG +=   qt                 \
+            plugin             \
+#            staticlib          \
             warn_on            \
             depend_includepath \
-            testcase
+            testcase           \
+#            precompile_header
+
+# @info for CONFIG += staticlib (GCC 9 Ubuntu 22)
+# Caused to belwoing error:
+# Compile outout:
+# make: o: No such file or directory
+# make: [Makefile:300: repo-name] Error 127 (ignored)
+# Application output:
+# Failed to start program. Path or permissions wrong?
 
 win32 {
     DEFINES += WINDOWS_BUILD
@@ -38,13 +51,31 @@ for (item, allFilesFolders): contains(item, [^.]*) : folders += $$item
 
 INCLUDEPATH += $$folders
 
+include($$PWD/version.pri)
+
+equals(TEMPLATE, lib) {
+    message("generating lib")
+
+    CONFIG -= qt
+
+    DEFINES += $${PROJECT_NAME_CAPITAL}_LIBRARY
+
+    message("DEFINES: $$DEFINES")
+
+    TARGET = ADRV9026_Interface_V1.0.8
+
+    CONFIG += shared
+} else {
+    message("building source codes")
+
+    DEFINES += $${PROJECT_NAME_CAPITAL}_SOURCE
+}
+
 include($$PWD/src/src.pri)
 
 include($$PWD/lib/lib.pri)
 
 include($$PWD/submodule/submodule.pri)
-
-include($$PWD/version.pri)
 
 INCLUDEPATH = $$unique(INCLUDEPATH)
 
@@ -65,13 +96,3 @@ DISTFILES += \
     $$files($$PWD/doc/*.md, true)
 
 #win32: RC_ICONS += icon.ico
-
-
-
-
-
-
-
-
-
-
