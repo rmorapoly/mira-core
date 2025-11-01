@@ -25,7 +25,7 @@ void Test::testCase1()
 
 }
 
-void Test::test_case2()
+void Test::testCase2()
 {
 
 }

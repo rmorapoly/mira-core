@@ -8,15 +8,15 @@ QT +=   core           \
         qml            \
         quick          \
         quickcontrols2 \
-        charts         \
-        positioning    \
-        location       \
-        network        \
         widgets        \
-        svg            \
-        xml            \
-        printsupport   \
-        concurrent
+#        charts         \
+#        positioning    \
+#        location       \
+#        network        \
+#        svg            \
+#        xml            \
+#        printsupport   \
+#        concurrent
 
 CONFIG +=   qt                 \
             plugin             \
@@ -24,7 +24,7 @@ CONFIG +=   qt                 \
             warn_on            \
             depend_includepath \
             testcase           \
-            precompile_header
+#            precompile_header
 
 # @info for CONFIG += staticlib (GCC 9 Ubuntu 22)
 # Caused to belwoing error:
@@ -96,13 +96,3 @@ DISTFILES += \
     $$files($$PWD/doc/*.md, true)
 
 #win32: RC_ICONS += icon.ico
-
-
-
-
-
-
-
-
-
-
