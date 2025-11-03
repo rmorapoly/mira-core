@@ -19,11 +19,11 @@ QT +=   core           \
 #        concurrent
 
 CONFIG +=   qt                 \
-            plugin             \
-#            staticlib          \
             warn_on            \
             depend_includepath \
             testcase           \
+            plugin             \    # when trying to create plugin
+#            staticlib          \
 #            precompile_header
 
 # @info for CONFIG += staticlib (GCC 9 Ubuntu 22)
@@ -41,11 +41,14 @@ unix {
     DEFINES += UNIX_BUILD
 }
 
+DEFINES += REPO_PWD=\\\"$$PWD\\\"
+DEFINES += BUILD_OUT_PWD=\\\"$$OUT_PWD\\\"
+
 CONFIG(BUILD_WITH_UNRESOLVED){
     LIBS += -Wl,--as-needed -Wl,--unresolved-symbols=ignore-all
 }
 
-allFilesFolders = $$files($$PWD/src/*, true))
+allFilesFolders = $$files($$PWD/src/*, true)
 folders = src
 for (item, allFilesFolders): contains(item, [^.]*) : folders += $$item
 
@@ -56,13 +59,14 @@ include($$PWD/version.pri)
 equals(TEMPLATE, lib) {
     message("generating lib")
 
-    CONFIG -= qt
+    # Keep qt config while creating plugin lib because of plugin.cpp
+    contains(CONFIG, plugin) {} else {
+        CONFIG -= qt
+    }
 
     DEFINES += $${PROJECT_NAME_CAPITAL}_LIBRARY
 
-    message("DEFINES: $$DEFINES")
-
-    TARGET = ADRV9026_Interface_V1.0.8
+    TARGET = $${PROJECT_NAME_CAMEL}
 
     CONFIG += shared
 } else {
@@ -81,10 +85,17 @@ INCLUDEPATH = $$unique(INCLUDEPATH)
 
 RESOURCES += $$PWD/img/img.qrc
 
-# Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
-else: unix:!android: target.path = /opt/$${TARGET}/bin
-!isEmpty(target.path): INSTALLS += target
+equals(TEMPLATE, lib): contains(CONFIG, plugin) {
+    # Default lib versioning for plugin (should be write for non unix)
+    unix: QMAKE_POST_LINK += ln -sf lib$${TARGET}.so lib$${TARGET}.so.$${VERSION_MAJOR};
+    unix: QMAKE_POST_LINK += ln -sf lib$${TARGET}.so.$${VERSION_MAJOR} lib$${TARGET}.so.$${VERSION_MAJOR}.$${VERSION_MINOR};
+    unix: QMAKE_POST_LINK += ln -sf lib$${TARGET}.so.$${VERSION_MAJOR}.$${VERSION_MINOR} lib$${TARGET}.so.$${VERSION};
+} else {
+    # Default rules for deployment.
+    qnx: target.path = /tmp/$${TARGET}/bin
+    else: unix:!android: target.path = /opt/$${TARGET}/bin
+    !isEmpty(target.path): INSTALLS += target
+}
 
 win32: DEFINES += _GLIBCXX_TXN_SAFE_DYN="" _GLIBCXX_NOTHROW="" # For compatibility to GCC
 

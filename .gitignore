@@ -25,6 +25,9 @@ object_script.*.Debug
 moc_*.cpp
 moc_*.h
 qrc_*.cpp
+qmlcache_*.cpp
+*_qmlcache.qrc
+src_*.cpp
 ui_*.h
 *.qmlc
 *.jsc
@@ -51,8 +54,6 @@ compile_commands.json
 
 # QtCreator local machine specific files for imported projects
 *creator.user*
-
-*_qmlcache.qrc
 
 # mira-base
 build/
