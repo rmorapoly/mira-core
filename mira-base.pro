@@ -48,21 +48,13 @@ CONFIG(BUILD_WITH_UNRESOLVED){
     LIBS += -Wl,--as-needed -Wl,--unresolved-symbols=ignore-all
 }
 
-allFilesFolders = $$files($$PWD/src/*, true)
-folders = src
-for (item, allFilesFolders): contains(item, [^.]*) : folders += $$item
-
-INCLUDEPATH += $$folders
-
 include($$PWD/version.pri)
 
 equals(TEMPLATE, lib) {
     message("generating lib")
 
     # Keep qt config while creating plugin lib because of plugin.cpp
-    contains(CONFIG, plugin) {} else {
-        CONFIG -= qt
-    }
+    !contains(CONFIG, plugin): CONFIG -= qt
 
     DEFINES += $${PROJECT_NAME_CAPITAL}_LIBRARY
 
