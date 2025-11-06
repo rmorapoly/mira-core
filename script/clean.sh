@@ -1,0 +1,10 @@
+cd ../
+rm Makefile
+rm moc_*.*
+rm qmake_*.*
+rm qmlcache_*.*
+rm qrc_*.*
+rm src_*.*
+rm *.o
+rm *.moc
+rm target_*.sh

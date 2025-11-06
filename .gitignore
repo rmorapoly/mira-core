@@ -5,10 +5,10 @@
 *.a
 *.la
 *.lai
-*.so
-*.so.*
-*.dll
-*.dylib
+# *.so
+# *.so.*
+# *.dll
+# *.dylib
 
 # Qt-es
 object_script.*.Release
@@ -16,6 +16,7 @@ object_script.*.Debug
 *_plugin_import.cpp
 /.qmake.cache
 /.qmake.stash
+*.user
 *.pro.user
 *.pro.user.*
 *.qbs.user
@@ -24,6 +25,9 @@ object_script.*.Debug
 moc_*.cpp
 moc_*.h
 qrc_*.cpp
+qmlcache_*.cpp
+*_qmlcache.qrc
+src_*.cpp
 ui_*.h
 *.qmlc
 *.jsc
@@ -51,4 +55,5 @@ compile_commands.json
 # QtCreator local machine specific files for imported projects
 *creator.user*
 
-*_qmlcache.qrc
+# mira-base
+build/
