@@ -1,3 +1,4 @@
+cd ../
 rm Makefile
 rm moc_*.*
 rm qmake_*.*

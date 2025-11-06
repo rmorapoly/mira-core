@@ -9,8 +9,6 @@ for (item, allFilesFolders) {
     }
 }
 
-message($$folders)
-
 INCLUDEPATH += $$folders
 
 include($$PWD/cpp/cpp.pri)
