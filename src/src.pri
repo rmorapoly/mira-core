@@ -1,4 +1,17 @@
-INCLUDEPATH += $$PWD/
+allFilesFolders = $$files($$PWD/*, true)
+folders = src
+for (item, allFilesFolders) {
+    contains(item, [^.]*) {
+        base = $$basename(item)
+        !equals(base, qmldir) {
+            folders += $$item
+        }
+    }
+}
+
+message($$folders)
+
+INCLUDEPATH += $$folders
 
 include($$PWD/cpp/cpp.pri)
 
