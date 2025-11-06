@@ -1,5 +1,7 @@
-# mira-quick
-Mira-Quick is a modular, private QML module providing a consistent theme and utility functions for Qt Quick applications. It centralizes design tokens, styling, and reusable QML helpers, allowing developers to build visually consistent interfaces while keeping the implementation private.
+# verna-software-guidelines
+
+**Verna Software Guidelines (VSG)** is the official reference for clean code, development standards, and team-wide best practices.  
+It focuses on modern C++/Qt, Git workflows, consistency, readability, and collaborative engineering habits.
 
 ## 📚 Sections
 

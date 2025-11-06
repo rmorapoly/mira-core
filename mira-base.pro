@@ -1,3 +1,4 @@
+# Clean repo after changing to lib
 TEMPLATE = \
            app \
 #           lib
