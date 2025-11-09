@@ -12,7 +12,7 @@ This guide applies to all developers working on C++/Qt projects using Qt Creator
 
 Use consistent naming styles throughout your codebase to improve readability and avoid confusion:
 
-<img src="case.jpg" alt="case.jpg" style="zoom:50%;" />
+<img src="img/case.jpg" alt="case.jpg" style="zoom:50%;" />
 
 * **PascalCase** – Use for class names, namespace, enum types and C++ header and source files.
   * ✅ `UserManager`, `LoginDialog`, `DatabaseManager.h`, `DeviceHandler.cpp`
@@ -302,7 +302,7 @@ Descriptive names reduce the need for comments and eliminate ambiguity. Always a
 
 The SOLID principles guide object-oriented design toward maintainability and extensibility:
 
-<img src="solid.png" style="zoom:50%;" />
+<img src="img/solid.png" style="zoom:50%;" />
 
 * **S**ingle Responsibility Principle: A class should have one, and only one, reason to change.
   *Example: A **`Logger`** class should only handle logging, not perform formatting or file I/O.*
@@ -328,29 +328,76 @@ The project root directory should be organized in a consistent and predictable w
 ```bash
 /project-root
 ├── src/                                  # Main source code (typically header and source files)
-│   ├── setting/                          # Application configuration and initialization logic
-│   └── gui/                              # GUI components (if applicable)
-│       ├── qml/                          # QML files organized by GUI hierarchy
-│       └── images/                       # Images used in GUI (icons, assets, etc.)
+│   ├── cpp/                              # C++ header and source files
+│   │   └── cpp.pri                       # QMake include for C++ code
+│   ├── c/                                # C header and source files
+│   │   └── c.pri                         # QMake include for C code
+│   ├── qml/                              # QML files
+│   │   ├── qml.pri                       # QMake include for QML
+│   │   └── qml.qrc                       # QML resource file
+│   ├── js/                               # JavaScript helper files
+│   │   ├── js.pri                        # QMake include for JS
+│   │   └── js.qrc                        # JS resource file
+│   └── src.pri                           # Top-level include for all source code
 ├── submodule/                            # Git submodules or third-party dependencies
+│   └── submodule.pri                     # QMake include for submodules
 ├── lib/                                  # External or compiled libraries
-├── release/                              # Release build output
-├── debug/                                # Debug build output
-├── repo-name.pro                         # Qt project file (QMake)
-├── setting.ini                           # Runtime or user configuration (optional)
+│   └── lib.pri                           # QMake include for libraries
+├── img/                                  # Images and icons
+│   └── img.qrc                           # Qt resource file for images
+├── doc/                                  # Documentation (Markdown files)
+├── proc/                                 # Process modules/scripts
+├── module/                               # Additional modules
+├── script/                               # Repository scripts
+├── release/                              # Release build output (shadow build recommended)
+├── debug/                                # Debug build output (shadow build recommended)
+├── project-name.pro                      # Main Qt project file (QMake)
+├── version.pri                           # Project version information
+├── project-name_en_US.ts                 # Translation file
 ├── Makefile                              # Optional makefile (if not using CMake)
-├── .gitignore                            # Git ignored file patterns
+├── setting.ini                           # Runtime or user configuration (optional)
 ├── .gitmodules                           # Git submodule metadata (if submodules used)
+├── .gitignore                            # Git ignored file patterns
 ├── icon.ico                              # Application icon (if GUI and packaged)
 ├── README.md                             # Main project description and entry doc
-├── Project_Name_User_Manual_V1.0.0.pdf   # User manual (optional, versioned)
-└── note.txt                              # Optional note file (more info)
+├── Project_Name_User_Manual_V1.0.0.pdf   # Optional user manual (versioned)
+└── note.txt                              # Optional notes
 ```
 
-- **repo-name.pro**: Main `.pro` file used when building with QMake.
-- **setting.ini**: Configuration and grouped setting values loaded at runtime (if the app supports customization).
-- **.gitignore** and **.gitmodules**: Git-specific project metadata.
-- **icon.ico**: Icon for the app, typically used in packaging and GUI projects.
-- **Project_Name_User_Manual_V1.0.0.pdf**: Optional user-facing documentation file, versioned.
+- **src/**: Contains all application source code.  
+- **cpp.pri**, **c.pri**, **qml.pri**, **js.pri**: QMake include files for each source type.  
+- **qml.qrc**, **js.qrc**: Manage QML and JavaScript resources.  
+- **src.pri**: Includes all source subfolders for the project.  
+- **submodule/**, **lib/**: Contain QMake include files for submodules and libraries.  
+- **img/**: Images are managed via `img.qrc`.  
+- **proc/**, **module/**, **script/**: Repository-specific scripts and modules.  
+- **doc/**: Markdown documentation files.  
+- **release/** / **debug/**: Output directories for builds (controlled by the shadow build setup).  
+- **project-name.pro**: Main Qt project file used when building with QMake.  
+- **version.pri**: Central version information and metadata for the build.  
+- **project-name_en_US.ts**: Translation file for the project.  
+- **Makefile**: Optional makefile (if not using CMake).  
+- **setting.ini**: Configuration and grouped settings loaded at runtime (optional).  
+- **.gitignore**, **.gitmodules**: Git-specific project metadata.  
+- **icon.ico**: Application icon, typically used in packaging and GUI projects.  
+- **README.md**: Main project description and entry document.  
+- **Project_Name_User_Manual_V1.0.0.pdf**: Optional **user-facing** documentation file, versioned.  
+- **note.txt**: Optional notes.  
 
+### 🏗 Recommended Qt Creator Shadow Build Setup
 
+To keep build folders clean and consistent across developers, configure Qt Creator to use the following Shadow Build path template (tested on qtcreator 17, maybe not needed in older versions):
+
+`../build-%{Asciify:%{Project:Name}-%{Kit:FileSystemName}-%{BuildConfig:Name}}`
+
+Example resulting folders:
+
+`../build-MyProject-Desktop_Qt_5_14_2_MSVC2017_64bit-Debug`
+
+`../build-MyProject-Desktop_Qt_5_14_2_MSVC2017_64bit-Release`
+
+How to apply in Qt Creator 17+:
+1. Open Qt Creator.
+2. Go to Tools → Options (Preferences on macOS).
+3. Open Kits, select your kit.
+4. Set Default build directory to `../build-%{Asciify:%{Project:Name}-%{Kit:FileSystemName}-%{BuildConfig:Name}}`
