@@ -1,6 +1,8 @@
-DISTFILES += $$files($$PWD/*.qml, true)
 
-RESOURCES += $$PWD/qml.qrc
+equals(TEMPLATE, lib): contains(CONFIG, plugin) { } else {
+    DISTFILES += $$files($$PWD/*.qml, true)
 
-QML_IMPORT_PATH += $$PWD/modules
-QML2_IMPORT_PATH += $$PWD/modules
+    RESOURCES += $$PWD/qml.qrc \
+}
+
+include($$PWD/imports/imports.pri)

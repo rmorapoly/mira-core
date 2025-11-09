@@ -1,0 +1,6 @@
+DISTFILES += $$files($$PWD/*.qml, true)
+
+RESOURCES += $$files($$PWD/*.qrc, true)
+
+QML_IMPORT_PATH += $$PWD
+QML2_IMPORT_PATH += $$PWD

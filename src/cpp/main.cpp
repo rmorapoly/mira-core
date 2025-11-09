@@ -21,7 +21,8 @@ int main(int argc, char *argv[])
     Test test;
     QTEST_SET_MAIN_SOURCE_PATH
     QQmlApplicationEngine engine;
-    engine.addImportPath(":/imports");
+    engine.addImportPath("qrc:/");
+    engine.addImportPath(QString(REPO_PWD) + "/lib");
     engine.rootContext()->setContextProperty("opertingSystem", (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows ? "windows" : "unix"));
     const QUrl url(QStringLiteral("qrc:/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
