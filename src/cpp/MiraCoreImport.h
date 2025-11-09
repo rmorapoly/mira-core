@@ -14,10 +14,10 @@
 #  define Q_DECL_IMPORT __attribute__((visibility("default")))
 #endif
  
-#if defined(MIRA_BASE_LIBRARY)
-#  define MIRA_BASE_EXPORT Q_DECL_EXPORT
-#elif defined(MIRA_BASE_SOURCE)
-#  define MIRA_BASE_EXPORT
+#if defined(MIRA_CORE_LIBRARY)
+#  define MIRA_CORE_EXPORT Q_DECL_EXPORT
+#elif defined(MIRA_CORE_SOURCE)
+#  define MIRA_CORE_EXPORT
 #else
-#  define MIRA_BASE_EXPORT Q_DECL_IMPORT
+#  define MIRA_CORE_EXPORT Q_DECL_IMPORT
 #endif

@@ -2,6 +2,18 @@
 
 #include <QtTest>
 #include <QCoreApplication>
+#include "MiraObject.h"
+
+
+class Child : public Mira::Object {
+    Q_OBJECT
+public:
+    explicit Child() MIRA_DECLARE_OBJECT
+    {}
+    ~Child() override {
+
+    }
+};
 
 class Test : public QObject
 {
