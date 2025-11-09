@@ -1,6 +1,7 @@
 CONFIG += c++1z
 
-#QMAKE_CXXFLAGS += -Wall
+QMAKE_CXXFLAGS += -Wall
+QMAKE_CXXFLAGS += -Wno-c++98-compat
 
 IMPORT_HEADER = $$PWD/$$PROJECT_NAME_CAMEL"Import.h"
 
@@ -34,14 +35,24 @@ message("Generated import header: $$IMPORT_HEADER")
 
 INCLUDEPATH += $$PWD/
 
-equals(TEMPLATE, lib): contains(CONFIG, plugin) {
-    SOURCES += $$PWD/plugin.cpp
+equals(TEMPLATE, lib) {
+    contains(CONFIG, plugin) {
+        SOURCES += $$PWD/plugin.cpp
 
-    HEADERS += $$IMPORT_HEADER
+        HEADERS += $$IMPORT_HEADER
+    }
+    else {
+        SOURCES += $$files($$PWD/*.cpp, true)
+        SOURCES -= $$PWD/plugin.cpp
+        SOURCES -= $$PWD/Test.cpp
+        SOURCES -= $$PWD/main.cpp
+
+        HEADERS += $$files($$PWD/*.h, true)
+        HEADERS -= $$PWD/Test.h
+    }
 }
 else {
     SOURCES += $$files($$PWD/*.cpp, true)
-
     SOURCES -= $$PWD/plugin.cpp
 
     HEADERS += $$files($$PWD/*.h, true)
