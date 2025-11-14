@@ -401,3 +401,62 @@ How to apply in Qt Creator 17+:
 2. Go to Tools → Options (Preferences on macOS).
 3. Open Kits, select your kit.
 4. Set Default build directory to `../build-%{Asciify:%{Project:Name}-%{Kit:FileSystemName}-%{BuildConfig:Name}}`
+
+### 🧩 Disabling Automatic Lowercase File Naming in Qt Creator
+
+By default, Qt Creator automatically converts new file and class names to lowercase when you create them using the **New File/Class** wizard.  
+This behavior can be disabled to preserve your preferred naming style (e.g. `MyClass.cpp` instead of `myclass.cpp`).
+
+#### 🧱 Qt Creator 4.x
+
+1. Open **Tools ▸ Options… ▸ C++ ▸ File Naming**.  
+2. In the **Class Names / File Names** section, uncheck:
+   - **Lower case file names**
+3. (Optional) Adjust the **Header / Source file suffixes** if you prefer uppercase extensions or custom suffixes.
+4. Click **Apply** and **OK**.
+
+> 💡 Tip: The option may also appear under **Environment ▸ File Naming** in older minor releases.
+
+#### 🧱 Qt Creator 17.x (Qt Creator 2024+)
+
+1. Open **Edit ▸ Preferences ▸ C++ ▸ File Naming**  
+   - (or **Tools ▸ Options** on Windows/Linux).
+2. Under **File Naming Rules**, disable:
+   - **Lower case file names**
+3. Confirm with **Apply**.
+
+> 🧠 Note: Qt Creator 17 uses a unified preference layout;  
+> the “File Naming” tab also controls whether underscores or camelCase are used when generating files.
+
+### 🧩 Using `#pragma once` Instead of Traditional Include Guards
+
+By default, Qt Creator generates header files with classic include guards such as:
+
+```cpp
+#ifndef MYCLASS_H
+#define MYCLASS_H
+// ...
+#endif // MYCLASS_H
+```
+You can change this behavior so all newly created headers use the modern and cleaner:
+```cpp
+#pragma once
+```
+
+#### 🧱 Qt Creator 4.x
+
+1. Open Tools ▸ Options… ▸ C++ ▸ File Naming
+(or sometimes under C++ ▸ Code Style ▸ File Templates).
+
+2. Switch to the File Templates tab.
+
+3. Select C++ Header File (.h) in the list.
+
+4. Replace the default include guard lines with checking:
+- [ ] `Use "#pragma once" instead`
+
+5. Click Apply and OK.
+
+#### 🧱 Qt Creator 17.x (2024 and later)
+
+- Open Edit ▸ Preferences ▸ C++ ▸ File Naming and do like as mentioned.
