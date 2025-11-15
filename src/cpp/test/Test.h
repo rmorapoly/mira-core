@@ -1,19 +1,16 @@
 #pragma once
 
-#include <QtTest>
-#include <QCoreApplication>
+#include <QObject>
 
 class Test : public QObject
 {
     Q_OBJECT
-
 public:
-    Test();
-    ~Test();
+    explicit Test(QObject *parent = nullptr);
 
+/// Should be private slots
 private slots:
     void initTestCase();
     void testCase1();
-    void testCase2();
     void cleanupTestCase();
 };
