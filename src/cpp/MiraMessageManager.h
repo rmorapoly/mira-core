@@ -8,15 +8,14 @@ namespace Mira {
     class MessageManager : public QObject
     {
         Q_OBJECT
+        friend class Object;
     public:
         explicit MessageManager(QObject *parent = nullptr);
         void report(const Message& msg) const;
-        void reportConstructed(const Object& obj) const;
-        void reportDestructed(const Object& obj) const;
+    private:
+        void reportDestructed(Object* obj) const;
+        void reportConstructed(Object* obj) const;
     signals:
         void reported(const Message& msg) const;
-
-
     };
 }
-

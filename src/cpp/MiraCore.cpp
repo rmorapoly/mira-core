@@ -15,7 +15,7 @@ const MessageManager& Core::getMessageManager() const
     return messageManager;
 }
 
-ObjectRegistery& Core::getObjectRegistery()
+ObjectRegistry& Core::getObjectRegistery()
 {
     return objectRegistery;
 }

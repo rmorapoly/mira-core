@@ -1,7 +1,6 @@
 CONFIG += c++1z
 
 QMAKE_CXXFLAGS += -Wall
-QMAKE_CXXFLAGS += -Wno-c++98-compat
 
 IMPORT_HEADER = $$PWD/$$PROJECT_NAME_CAMEL"Import.h"
 

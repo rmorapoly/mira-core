@@ -14,11 +14,16 @@ namespace Mira {
     extern QString toStr(QtMsgType msgType);
     extern QString demangleClassName(const char* mangledName);
     struct Message {
-        QtMsgType type;
-        QDateTime dateTimeStamp;
-        const Object& obj;
         QString text;
+        QtMsgType type;
+        Object* obj;
+        QDateTime dateTimeStamp;
+        Message(QString text,
+                QtMsgType type = QtInfoMsg,
+                Object* obj = nullptr,
+                QDateTime dateTimeStamp = QDateTime::currentDateTime());
         operator QString() const;
     };
+
 }
 

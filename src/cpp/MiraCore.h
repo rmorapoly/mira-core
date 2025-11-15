@@ -4,7 +4,7 @@
 #include <QMap>
 #include "MiraSingleton.h"
 #include "MiraMessageManager.h"
-#include "MiraObjectRegistery.h"
+#include "MiraObjectRegistry.h"
 
 namespace Mira {
     class Core : public QObject, public Singleton<Core>
@@ -14,10 +14,10 @@ namespace Mira {
         explicit Core(QObject *parent = nullptr);
     public:
         const MessageManager& getMessageManager() const;
-        ObjectRegistery& getObjectRegistery();
+        ObjectRegistry& getObjectRegistery();
     private:
         const MessageManager messageManager;
-        ObjectRegistery objectRegistery;
+        ObjectRegistry objectRegistery;
         QMap<QString, int> objNameToInstanceId;
     };
 }

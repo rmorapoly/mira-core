@@ -1,13 +1,13 @@
-#include "MiraObjectRegistery.h"
+#include "MiraObjectRegistry.h"
 #include "MiraObject.h"
 
 using namespace Mira;
 
-ObjectRegistery::ObjectRegistery(QObject* parent) :
+ObjectRegistry::ObjectRegistry(QObject* parent) :
     QObject(parent)
 {}
 
-int ObjectRegistery::generateInstanceId(const QString& objName) const
+int ObjectRegistry::generateInstanceId(const QString& objName) const
 {
 //    if (objNameToObjMap.contains(objName)) {
         return objNameToObjMap[objName].size();
@@ -16,12 +16,12 @@ int ObjectRegistery::generateInstanceId(const QString& objName) const
         //        return 0;
 }
 
-int ObjectRegistery::count(const QString& objName) const
+int ObjectRegistry::count(const QString& objName) const
 {
     return objNameToObjMap[objName].size();
 }
 
-void ObjectRegistery::add(Object* obj)
+void ObjectRegistry::add(Object* obj)
 {
     // Commented belowings for test
 //    if (!objNameToObjMap.contains(obj->name)) {
@@ -30,7 +30,7 @@ void ObjectRegistery::add(Object* obj)
     objNameToObjMap[obj->name][obj->instanceId] = obj;
 }
 
-void ObjectRegistery::remove(Object* obj)
+void ObjectRegistry::remove(Object* obj)
 {
     // Commented belowings for test
 //    if (objNameToObjMap.contains(obj->name)) {
@@ -43,10 +43,15 @@ void ObjectRegistery::remove(Object* obj)
 //    }
 }
 
-Object* ObjectRegistery::get(const QString& objName, int instanceId)
+Object* ObjectRegistry::get(const QString& objName, int instanceId) const
 {
     return objNameToObjMap[objName][instanceId];
 //    if (objNameToObjMap.contains(objName))
 //        if (objNameToObjMap[objName].contains(instanceId))
 //            return objna
+}
+
+Object *ObjectRegistry::get(int instanceId) const
+{
+    return get(STRINGIFY(Mira::Object), instanceId);
 }
