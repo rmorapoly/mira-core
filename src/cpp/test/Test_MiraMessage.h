@@ -15,5 +15,6 @@ private slots:
     void test_stringify();
     void test_className();
     void test_message();
+    void test_messageManager();
     void cleanupTestCase();
 };

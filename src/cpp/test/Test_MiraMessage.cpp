@@ -3,6 +3,7 @@
 #include "MiraObject.h"
 #include "TestRegistery.h"
 #include "MiraCore.h"
+#include "MiraMessageManager.h"
 
 REGISTER_QT_TEST(Test_MiraMessage)
 
@@ -182,5 +183,26 @@ void Test_MiraMessage::test_message()
     // cause fatal
 //    Core::getInstance()->getMessageManager().report(msg5);
 
+}
+
+void Test_MiraMessage::test_messageManager()
+{
+    using namespace Mira;
+
+    miraInfo() << "test msg";
+
+    class I : public Object {
+    public:
+        I() MIRA_DECLARE_OBJECT {};
+        void callee() {
+            makeMessageHelper(QtInfoMsg) << "inside I";
+            miraInfo() << "inside I";
+        }
+    };
+
+    I i;
+    i.callee();
+
+    // miraLog("hello");
 }
 

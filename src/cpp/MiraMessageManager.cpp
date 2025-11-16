@@ -1,5 +1,6 @@
 #include "MiraMessageManager.h"
 #include <QtDebug>
+#include "MiraCore.h"
 
 using namespace Mira;
 
@@ -25,7 +26,7 @@ void MessageManager::report(const Message& msg) const
             qCritical().noquote() << msg;
             break;
         case QtFatalMsg:
-            // qFatal() aborts the program immediately
+            /// aborts the program immediately
             qFatal("%s", msg.operator QString().toUtf8().constData());
             break;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -51,3 +52,14 @@ void MessageManager::reportDestructed(Object* obj) const
     report(msg);
 }
 
+MessageHelper::MessageHelper(const Object* obj, QtMsgType type) :
+    obj(obj),
+    type(type)
+{}
+
+MessageHelper::~MessageHelper()
+{
+    if (!buffer.isEmpty()) {
+        Core::getInstance()->getMessageManager().report({buffer, type, const_cast<Object*>(obj)});
+    }
+}

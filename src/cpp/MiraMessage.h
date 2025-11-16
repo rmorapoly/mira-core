@@ -24,6 +24,5 @@ namespace Mira {
                 QDateTime dateTimeStamp = QDateTime::currentDateTime());
         operator QString() const;
     };
-
 }
 
