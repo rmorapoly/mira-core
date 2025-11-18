@@ -1,6 +1,5 @@
 #include "MiraObject.h"
 #include "MiraCore.h"
-#include "MiraMessage.h"
 
 using namespace Mira;
 
@@ -13,13 +12,13 @@ Object::Object(const QString& name,
     instanceId(Core::getInstance()->getObjectRegistery().generateInstanceId(this->name))
 {
     Core::getInstance()->getObjectRegistery().add(this);
-    Core::getInstance()->getMessageManager().reportConstructed(this);
+    miraDebug() << "Constructed";
 }
 
 Object::~Object()
 {
     Core::getInstance()->getObjectRegistery().remove(this);
-    Core::getInstance()->getMessageManager().reportDestructed(this);
+    miraDebug() << "Destructed";
 }
 
 bool Object::hasName() const
@@ -40,4 +39,8 @@ bool Mira::operator==(const Object &obj1, const Object &obj2)
 bool Mira::operator!=(const Object &obj1, const Object &obj2)
 {
     return !(obj1 == obj2);
+}
+
+MessageHelper Object::makeMessageHelper(QtMsgType type) const {
+    return MessageHelper(this, type);
 }

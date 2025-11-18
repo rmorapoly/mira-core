@@ -18,11 +18,14 @@ namespace Mira {
         QtMsgType type;
         Object* obj;
         QDateTime dateTimeStamp;
-        Message(QString text,
+        Message(QString text = "",
                 QtMsgType type = QtInfoMsg,
                 Object* obj = nullptr,
                 QDateTime dateTimeStamp = QDateTime::currentDateTime());
         operator QString() const;
+        inline QString toStr() const {
+            return operator QString();
+        }
     };
 }
 

@@ -6,9 +6,9 @@ static auto instance = Core::getInstance();
 
 Core::Core(QObject* parent) :
     QObject(parent),
-    messageManager(this)
-{
-}
+    messageManager(this),
+    objectRegistery(this)
+{}
 
 const MessageManager& Core::getMessageManager() const
 {

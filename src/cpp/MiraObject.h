@@ -4,7 +4,6 @@
 #include <QString>
 #include <QHash>
 #include <QDebug>
-#include "MiraMessage.h"
 #include "MiraMessageManager.h"
 
 #define MIRA_DECLARE_OBJECT : Mira::Object(Mira::demangleClassName(typeid (this).name()))
@@ -26,9 +25,6 @@ namespace Mira {
         friend bool operator==(const Object& obj1, const Object& obj2);
         friend bool operator!=(const Object& obj1, const Object& obj2);
     protected:
-        void reportMsg(QtMsgType msgType, const QString& msg);
-        inline MessageHelper makeMessageHelper(QtMsgType type) const {
-            return MessageHelper(this, type);
-        }
+        MessageHelper makeMessageHelper(QtMsgType type) const;
     };
 }

@@ -77,7 +77,7 @@ Mira::Message::operator QString() const {
     const auto& instanceNameMsg = (obj && obj->hasInstanceName()) ? QString(" [%1]").arg(obj->instanceName) : "";
     return QString("[%1] [%2]%3%4 %5")
             .arg(dateTimeStamp.toString("yyyy-MM-dd hh:mm:ss.zzz"))
-            .arg(toStr(type))
+            .arg(Mira::toStr(type))
             .arg(objNameIdMsg)
             .arg(instanceNameMsg)
             .arg(text);

@@ -4,13 +4,18 @@
 
 using namespace Mira;
 
+// MessageSink::MessageSink(QObject* parent) :
+//     QObject(parent)
+// {}
+
 MessageManager::MessageManager(QObject* parent) :
     QObject(parent)
-{}
+{
+    qRegisterMetaType<Mira::Message>("Mira::Message");
+}
 
 void MessageManager::report(const Message& msg) const
 {
-//    qInfo().noquote() << msg;
     emit reported(msg);
     switch (msg.type) {
         case QtDebugMsg:
@@ -27,7 +32,7 @@ void MessageManager::report(const Message& msg) const
             break;
         case QtFatalMsg:
             /// aborts the program immediately
-            qFatal("%s", msg.operator QString().toUtf8().constData());
+            qFatal("%s", msg.toStr().toUtf8().constData());
             break;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         case QtSystemMsg:
@@ -40,18 +45,6 @@ void MessageManager::report(const Message& msg) const
     }
 }
 
-void MessageManager::reportConstructed(Object* obj) const
-{
-    Message msg{"Constructed", QtMsgType::QtDebugMsg, obj};
-    report(msg);
-}
-
-void MessageManager::reportDestructed(Object* obj) const
-{
-    Message msg{"Destructed", QtMsgType::QtDebugMsg, obj};
-    report(msg);
-}
-
 MessageHelper::MessageHelper(const Object* obj, QtMsgType type) :
     obj(obj),
     type(type)
@@ -60,6 +53,7 @@ MessageHelper::MessageHelper(const Object* obj, QtMsgType type) :
 MessageHelper::~MessageHelper()
 {
     if (!buffer.isEmpty()) {
+        buffer.chop(1);
         Core::getInstance()->getMessageManager().report({buffer, type, const_cast<Object*>(obj)});
     }
 }
