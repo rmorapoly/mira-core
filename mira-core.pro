@@ -1,7 +1,7 @@
 # Clean repo after changing to lib
 TEMPLATE = \
-           app \
-#           lib
+          app \
+           # lib
 
 QT +=   core           \
         testlib        \
@@ -11,19 +11,20 @@ QT +=   core           \
         quickcontrols2 \
         widgets        \
 #        charts         \
+        network        \
+        serialport     \
 #        positioning    \
 #        location       \
-#        network        \
 #        svg            \
 #        xml            \
-#        printsupport   \
-#        concurrent
+        printsupport   \
+        concurrent     \
 
 CONFIG +=   qt                 \
             warn_on            \
             depend_includepath \
             testcase           \
-            plugin             \    # when trying to create plugin
+#            plugin             \    # when trying to create plugin
 #            staticlib          \
 #            precompile_header
 
@@ -54,8 +55,8 @@ include($$PWD/version.pri)
 equals(TEMPLATE, lib) {
     message("generating lib")
 
-    # Keep qt config while creating plugin lib because of plugin.cpp
-    !contains(CONFIG, plugin): CONFIG -= qt
+    # Keep qt config while creating qt lib or plugin lib because of plugin.cpp
+    # CONFIG -= qt
 
     DEFINES += $${PROJECT_NAME_CAPITAL}_LIBRARY
 
