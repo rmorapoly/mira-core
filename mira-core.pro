@@ -1,28 +1,28 @@
 # Clean repo after changing to lib
 TEMPLATE = \
           app \
-           # lib
+#          lib
 
 QT +=   core           \
         testlib        \
-        gui            \
-        qml            \
-        quick          \
-        quickcontrols2 \
-        widgets        \
+#        gui            \
+#        qml            \
+#        quick          \
+#        quickcontrols2 \
+#        widgets        \
 #        charts         \
-        network        \
-        serialport     \
+#        network        \
+#        serialport     \
 #        positioning    \
 #        location       \
 #        svg            \
 #        xml            \
-        printsupport   \
-        concurrent     \
+#        printsupport   \
+#        concurrent     \
 
 CONFIG +=   qt                 \
             warn_on            \
-            depend_includepath \
+#            depend_includepath \
             testcase           \
 #            plugin             \    # when trying to create plugin
 #            staticlib          \

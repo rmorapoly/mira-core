@@ -46,11 +46,11 @@ equals(TEMPLATE, lib) {
     else {
         SOURCES += $$files($$PWD/*.cpp, true)
         SOURCES -= $$PWD/plugin.cpp
-        SOURCES -= $$PWD/Test.cpp
         SOURCES -= $$PWD/main.cpp
+        SOURCES -= $$files($$PWD/test/*.cpp, true)
 
         HEADERS += $$files($$PWD/*.h, true)
-        HEADERS -= $$PWD/Test.h
+        HEADERS -= $$files($$PWD/test/*.h, true)
     }
 }
 else {
