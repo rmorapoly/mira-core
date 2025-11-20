@@ -4,10 +4,6 @@
 
 using namespace Mira;
 
-// MessageSink::MessageSink(QObject* parent) :
-//     QObject(parent)
-// {}
-
 MessageManager::MessageManager(QObject* parent) :
     QObject(parent)
 {

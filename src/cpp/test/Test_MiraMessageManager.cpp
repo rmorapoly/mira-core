@@ -13,6 +13,8 @@ void Test_MiraMessageManager::initTestCase()
 
 void Test_MiraMessageManager::test()
 {
+    miraInfo() << "call test";
+
     using namespace Mira;
 
     const auto& mm = Core::getInstance()->getMessageManager();
