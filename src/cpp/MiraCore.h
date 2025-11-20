@@ -7,7 +7,7 @@
 #include "MiraObjectRegistry.h"
 
 namespace Mira {
-    class Core : public QObject, public Singleton<Core>
+    class MIRA_CORE_EXPORT Core : public QObject, public Singleton<Core>
     {
         Q_OBJECT
         friend class Singleton<Core>;

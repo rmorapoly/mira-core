@@ -24,7 +24,7 @@ namespace Mira {
     //     void consume(const Message& msg);
     // };
 
-    class MessageManager : public QObject
+    class MIRA_CORE_EXPORT MessageManager : public QObject
     {
         Q_OBJECT
     public:
@@ -34,7 +34,7 @@ namespace Mira {
         void reported(const Mira::Message& msg) const;
     };
 
-    class MessageHelper
+    class MIRA_CORE_EXPORT MessageHelper
     {
     public:
         MessageHelper(const Object* obj, QtMsgType type);

@@ -9,7 +9,7 @@
 #define MIRA_DECLARE_OBJECT : Mira::Object(Mira::demangleClassName(typeid (this).name()))
 
 namespace Mira {
-    class Object : public QObject
+    class MIRA_CORE_EXPORT Object : public QObject
     {
         Q_OBJECT
     public:

@@ -2,6 +2,7 @@
 
 #include <QtGlobal>
 #include <QDateTime>
+#include "MiraCoreImport.h"
 
 // double expansion (most useful version works fine for macros)
 #define STRINGIFY_IMPL(x) #x
@@ -11,9 +12,9 @@
 
 namespace Mira {
     class Object;
-    extern QString toStr(QtMsgType msgType);
-    extern QString demangleClassName(const char* mangledName);
-    struct Message {
+    extern MIRA_CORE_EXPORT QString toStr(QtMsgType msgType);
+    extern MIRA_CORE_EXPORT QString demangleClassName(const char* mangledName);
+    struct MIRA_CORE_EXPORT Message {
         QString text;
         QtMsgType type;
         Object* obj;

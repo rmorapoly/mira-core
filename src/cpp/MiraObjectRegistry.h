@@ -6,7 +6,7 @@
 
 namespace Mira {
     class Object;
-    class ObjectRegistry : public QObject
+    class MIRA_CORE_EXPORT ObjectRegistry : public QObject
     {
         Q_OBJECT
         friend class Object;
