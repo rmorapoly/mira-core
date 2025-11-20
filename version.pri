@@ -6,7 +6,7 @@
 VERSION_MAJOR           = 1
 VERSION_MINOR           = 0
 VERSION_PATCH           = 0
-PROJECT_NAME            = Mira Base
+PROJECT_NAME            = Mira Core
 ORGANIZATION_NAME       = Mira
 ORGANIZATION_DOMAIN     = Mira.ir
 
