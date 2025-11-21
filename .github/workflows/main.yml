@@ -46,6 +46,7 @@ jobs:
       # ---- Copy output library (.so / .a) ----------------------------------
       - name: Copy generated library
         run: |
+          mkdir -p output
           cp lib*.so output/ || true
           cp lib*.a output/  || true
 
