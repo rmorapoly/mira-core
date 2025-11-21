@@ -59,8 +59,8 @@ jobs:
           # Add YOUR PUBLIC HEADERS HERE:
           cp -r src/cpp/ output/include/
           rm -r output/include/test/ || true
-          rm -r output/include/*.pri
-          rm -r output/include/*.cpp
+          rm -r output/include/*.pri || true
+          rm -r output/include/*.cpp || true
           rm -r output/include/**/*.cpp || true
           rm -r output/include/**/**/*.cpp || true
           rm -r output/include/**/**/**/*.cpp || true
