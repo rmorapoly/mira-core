@@ -1,7 +1,7 @@
 # Clean repo after changing to lib
 TEMPLATE = \
-          app \
-#          lib
+#          app \
+          lib
 
 QT +=   core           \
         testlib        \
