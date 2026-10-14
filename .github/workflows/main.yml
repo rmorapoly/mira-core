@@ -56,12 +56,9 @@ jobs:
           mkdir -p output/include
           # Add YOUR PUBLIC HEADERS HERE:
           cp -r src/cpp/* output/include/
-          rm -r output/include/test/ || true
-          rm -r output/include/*.pri || true
-          rm -r output/include/*.cpp || true
-          rm -r output/include/**/*.cpp || true
-          rm -r output/include/**/**/*.cpp || true
-          rm -r output/include/**/**/**/*.cpp || true
+          rm -rf output/include/test/ || true
+          rm -f output/include/*.pri || true
+          find output/include -name '*.cpp' -delete || true
 
       # ---- Generate .pri file -----------------------------------------------
       - name: Generate PRI file
@@ -82,7 +79,7 @@ jobs:
           INCLUDEPATH += $$folders
           INCLUDEPATH = $$unique(INCLUDEPATH)
           
-          LIBS += -L\$\$PWD/lib -lmira-core
+          LIBS += -L\$\$PWD/lib -lMiraCore
           EOF
 
       # ---- Upload artifacts --------------------------------------------------

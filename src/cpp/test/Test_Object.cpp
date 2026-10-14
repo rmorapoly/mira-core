@@ -1,21 +1,22 @@
-#include "Test_MiraObject.h"
-#include "MiraObject.h"
+#include "Test_Object.h"
+#include "mira/core/Object.h"
 #include "TestRegistery.h"
 
-REGISTER_QT_TEST(Test_MiraObject)
+REGISTER_QT_TEST(Test_Object)
 
-Test_MiraObject::Test_MiraObject(QObject *parent)
+using namespace Mira::Core;
+
+Test_Object::Test_Object(QObject *parent)
     : QObject{parent}
 {}
 
-void Test_MiraObject::test()
+void Test_Object::test()
 {
-    using namespace Mira;
     Object obj("");
     QCOMPARE(obj.hasName(), false);
     QCOMPARE(obj.instanceId, 0);
     QCOMPARE(obj.hasInstanceName(), false);
-    Object obj2(STRINGIFY(Mira::Object));
+    Object obj2(STRINGIFY(Mira::Core::Object));
     QCOMPARE(obj2.hasName(), false);
     QCOMPARE(obj2.instanceId, 1);
     QCOMPARE(obj2.hasInstanceName(), false);
@@ -31,4 +32,6 @@ void Test_MiraObject::test()
     };
     const ChildObj child0, child1;
     QCOMPARE(child0.name, STRINGIFY(ChildObj));
+    QCOMPARE(child0.instanceId, 0);
+    QCOMPARE(child1.instanceId, 1);
 }

@@ -1,33 +1,30 @@
-#include "Test_MiraMessage.h"
-#include "MiraMessage.h"
-#include "MiraObject.h"
+#include "Test_Meta.h"
 #include "TestRegistery.h"
-#include "MiraCore.h"
-#include "MiraMessageManager.h"
+#include "mira/Meta.h"
 
-REGISTER_QT_TEST(Test_MiraMessage)
+REGISTER_QT_TEST(Test_Meta)
 
-Test_MiraMessage::Test_MiraMessage()
+Test_Meta::Test_Meta()
 {
 
 }
 
-Test_MiraMessage::~Test_MiraMessage()
+Test_Meta::~Test_Meta()
 {
 
 }
 
-void Test_MiraMessage::initTestCase()
+void Test_Meta::initTestCase()
 {
 
 }
 
-void Test_MiraMessage::cleanupTestCase()
+void Test_Meta::cleanupTestCase()
 {
 
 }
 
-void Test_MiraMessage::test_stringify()
+void Test_Meta::test_stringify()
 {
     // testIdentifiers
     QCOMPARE(QString(STRINGIFY(abc)), QStringLiteral("abc"));
@@ -80,7 +77,7 @@ class Inherit : public A {
     Nested n;
 };
 
-void Test_MiraMessage::test_className()
+void Test_Meta::test_className()
 {
     class Local {
         __NAME_METHOD_DEF
@@ -91,7 +88,7 @@ void Test_MiraMessage::test_className()
     };
 #undef __NAME_METHOD_DEF
 
-    // Struct
+    // Struct (runtime demangle)
     A a;
     QCOMPARE(a.name(), "A");
 
@@ -100,7 +97,7 @@ void Test_MiraMessage::test_className()
     QCOMPARE(b.name(), "S::B_b");
 
     // Class
-    QCOMPARE(__CLASS_NAME__, "Test_MiraMessage");
+    QCOMPARE(__CLASS_NAME__, "Test_Meta");
 
     // Inheritance
     Inherit h;
@@ -117,70 +114,21 @@ void Test_MiraMessage::test_className()
     // Local nested class
     Local l2;
     QCOMPARE(l2.ln.name(), "Local::Local_Nested");
+
+    // Compile-time names (RTTI-free), expected to match demangle for these
+    QCOMPARE(Mira::className<A>(), QStringLiteral("A"));
+    QCOMPARE(Mira::className<S::B_b>(), QStringLiteral("S::B_b"));
+    QCOMPARE(Mira::className<Inherit>(), QStringLiteral("Inherit"));
+    QCOMPARE(Mira::className<Inherit::Nested>(), QStringLiteral("Inherit::Nested"));
+    QCOMPARE(Mira::className<Local>(), QStringLiteral("Local"));
+    QCOMPARE(Mira::className<Local::Local_Nested>(), QStringLiteral("Local::Local_Nested"));
 }
 
-void Test_MiraMessage::test_message()
+void Test_Meta::test_toStr()
 {
-    using namespace Mira;
-
-    Object obj("LocalObj");
-
-    Message msg{
-        "Debug msg",
-        QtDebugMsg,
-        &obj,
-        QDateTime::currentDateTime()
-    };
-
-    // Just see
-    qDebug().noquote() << msg;
-
-    class L : public Object {
-    public:
-        L() : Object("") {}
-    };
-
-    L l;
-
-    // Info message
-    Message msg2{
-        "Info msg",
-        QtInfoMsg,
-        &l,
-        QDateTime::currentDateTime()
-    };
-
-    // Just see
-    qDebug().noquote() << msg2;
-
-    // Warning, critical, fatal
-    Message msg3{
-        "Warning msg",
-        QtWarningMsg,
-        &l,
-        QDateTime::currentDateTime()
-    };
-
-    Message msg4{
-        "Critical msg",
-        QtCriticalMsg,
-        &l,
-        QDateTime::currentDateTime()
-    };
-
-    Message msg5{
-        "Fatal msg",
-        QtFatalMsg,
-        &l,
-        QDateTime::currentDateTime()
-    };
-
-    Core::getInstance()->getMessageManager().report({"Only Text"});
-
-    // Report messages
-    Core::getInstance()->getMessageManager().report(msg3);
-    Core::getInstance()->getMessageManager().report(msg4);
-    // cause fatal
-//    Core::getInstance()->getMessageManager().report(msg5);
-
+    QCOMPARE(Mira::toStr(QtDebugMsg), QStringLiteral("Debug"));
+    QCOMPARE(Mira::toStr(QtInfoMsg), QStringLiteral("Info"));
+    QCOMPARE(Mira::toStr(QtWarningMsg), QStringLiteral("Warning"));
+    QCOMPARE(Mira::toStr(QtCriticalMsg), QStringLiteral("Critical"));
+    QCOMPARE(Mira::toStr(QtFatalMsg), QStringLiteral("Fatal"));
 }

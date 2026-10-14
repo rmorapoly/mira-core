@@ -1,7 +1,7 @@
 # Clean repo after changing to lib
 TEMPLATE = \
-#          app \
-          lib
+          app \
+         # lib
 
 QT +=   core           \
         testlib        \
@@ -94,7 +94,7 @@ equals(TEMPLATE, lib): contains(CONFIG, plugin) {
 win32: DEFINES += _GLIBCXX_TXN_SAFE_DYN="" _GLIBCXX_NOTHROW="" # For compatibility to GCC
 
 TRANSLATIONS += \
-    mira-base_en_US.ts
+    mira-core_en_US.ts
 
 DISTFILES += \
     README.md \

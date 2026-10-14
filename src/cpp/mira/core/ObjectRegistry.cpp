@@ -1,7 +1,7 @@
-#include "MiraObjectRegistry.h"
-#include "MiraObject.h"
+#include "ObjectRegistry.h"
+#include "Object.h"
 
-using namespace Mira;
+using namespace Mira::Core;
 
 ObjectRegistry::ObjectRegistry(QObject* parent) :
     QObject(parent)
@@ -32,7 +32,7 @@ Object* ObjectRegistry::get(const QString& objName, int instanceId) const
     return objNameToObjMap[objName][instanceId];
 }
 
-Object *ObjectRegistry::get(int instanceId) const
+Object* ObjectRegistry::get(int instanceId) const
 {
-    return get(STRINGIFY(Mira::Object), instanceId);
+    return get(STRINGIFY(Mira::Core::Object), instanceId);
 }

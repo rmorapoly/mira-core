@@ -2,11 +2,11 @@
 
 #include <QCoreApplication>
 
-class Test_MiraObject : public QObject
+class Test_Object : public QObject
 {
     Q_OBJECT
 public:
-    explicit Test_MiraObject(QObject *parent = nullptr);
+    explicit Test_Object(QObject *parent = nullptr);
 
 private slots:
     void initTestCase() {};

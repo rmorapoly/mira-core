@@ -1,20 +1,21 @@
-#include "Test_MiraObjectRegistry.h"
-#include "MiraCore.h"
-#include "MiraObject.h"
+#include "Test_ObjectRegistry.h"
+#include "mira/Root.h"
+#include "mira/core/Object.h"
 #include "TestRegistery.h"
 
-REGISTER_QT_TEST(Test_MiraObjectRegistry)
+REGISTER_QT_TEST(Test_ObjectRegistry)
 
-Test_MiraObjectRegistry::Test_MiraObjectRegistry(QObject *parent)
+using namespace Mira;
+using namespace Mira::Core;
+
+Test_ObjectRegistry::Test_ObjectRegistry(QObject *parent)
     : QObject{parent}
 {}
 
-void Test_MiraObjectRegistry::test()
+void Test_ObjectRegistry::test()
 {
-    using namespace Mira;
-
-    // Create a registry manually (if not a singleton)
-    const auto& registry = Core::getInstance()->getObjectRegistery();
+    // The registry is owned by the Core singleton
+    auto& registry = Root::getInstance()->registry();
 
     // Initially empty
     QCOMPARE(registry.count(), 0);
@@ -46,5 +47,4 @@ void Test_MiraObjectRegistry::test()
     delete obj2;
     delete obj3;
     QCOMPARE(registry.count("Obj"), 0);
-
 }

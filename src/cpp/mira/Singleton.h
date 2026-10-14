@@ -11,13 +11,13 @@ namespace Mira {
      * derived class itself:
      *
      * @code
-     * #include "MiraSingleton.h"
+     * #include "Singleton.h"
      *
-     * class Core : public Singleton<Core>
+     * class Root : public Singleton<Root>
      * {
-     *     friend class Singleton<Core>;      // Required!
+     *     friend class Singleton<Root>;      // Required!
      * private:
-     *     Core() {}                          // Must be private or protected
+     *     Root() {}                          // Must be private or protected
      *     ...
      * };
      * @endcode
@@ -25,7 +25,7 @@ namespace Mira {
      * It is optional but prefered to generate instance in cpp:
      *
      * @code
-     * static auto instance = Core::getInstance();
+     * static auto instance = Root::getInstance();
      * @endcode
      *
      * ### Features

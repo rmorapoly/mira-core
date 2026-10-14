@@ -2,7 +2,7 @@
 
 #include <QObject>
 
-class Test_MiraMessageManager : public QObject
+class Test_Log : public QObject
 {
     Q_OBJECT
 private slots:

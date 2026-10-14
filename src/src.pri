@@ -1,15 +1,15 @@
-allFilesFolders = $$files($$PWD/*, true)
-folders = src
-for (item, allFilesFolders) {
-    contains(item, [^.]*) {
-        base = $$basename(item)
-        !equals(base, qmldir) {
-            folders += $$item
-        }
-    }
-}
+# allFilesFolders = $$files($$PWD/*, true)
+# folders = src
+# for (item, allFilesFolders) {
+#     contains(item, [^.]*) {
+#         base = $$basename(item)
+#         !equals(base, qmldir) {
+#             folders += $$item
+#         }
+#     }
+# }
 
-INCLUDEPATH += $$folders
+INCLUDEPATH += $$PWD
 
 include($$PWD/cpp/cpp.pri)
 
