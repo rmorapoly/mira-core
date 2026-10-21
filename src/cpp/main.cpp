@@ -9,7 +9,6 @@ int main(int argc, char* argv[])
     app.setOrganizationName(ORGANIZATION_NAME);
     app.setOrganizationDomain(ORGANIZATION_DOMAIN);
 
-    // Use Qt's own message pattern; Mira adds the object context to the message.
     Mira::Core::installLogHandler();
 
     QTEST_SET_MAIN_SOURCE_PATH

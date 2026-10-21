@@ -11,22 +11,32 @@ Test::Test(QObject *parent)
 
 void Test::initTestCase()
 {
+    // Mira::Core::installLogHandler();
+
+    Mira::Core::installLogHandler();
+    Mira::Core::installLogHandler();
+    Mira::Core::installLogHandler();
+    Mira::Core::reinstallLogHandler();
+    Mira::Core::reinstallLogHandler();
+    Mira::Core::reinstallLogHandler();
+    Mira::Core::reinstallLogHandler();
     Mira::Core::reinstallLogHandler();
 }
 
 void Test::testCase1()
 {
-    class D : public Mira::Core::Object {
+    class MObject : public Mira::Core::Object {
     public:
-        D() : Mira::Core::Object("D", "i1") {
-            mInfo() << "my d";
-
+        MObject() : Mira::Core::Object("MObject", "ins1") {
+            mInfo() << "my mobject msg";
         }
     };
 
     mInfo() << "log pattern" << Mira::Core::logPattern();
-    D d;
+    MObject mObj;
     mInfo() << "test mInfo";
+    (::Mira::Core::LogObjectScope(miraLogObject()),
+        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical());
 }
 
 void Test::cleanupTestCase()

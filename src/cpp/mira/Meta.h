@@ -53,7 +53,7 @@ namespace Mira {
      */
     extern MIRA_CORE_EXPORT QString demangleClassName(const char* mangledName);
 
-    namespace detail {
+    namespace Details {
 
         /**
          * @brief Compile-time (RTTI-free) extraction of a type name.
@@ -99,7 +99,7 @@ namespace Mira {
             return name;
         }
 
-    } // namespace detail
+    } // namespace Details
 
     /**
      * @brief Returns the readable name of a type at compile time.
@@ -121,7 +121,7 @@ namespace Mira {
     template <typename T>
     inline QString className()
     {
-        return detail::rawClassName<T>();
+        return Details::rawClassName<T>();
     }
 
 } // namespace Mira
