@@ -39,8 +39,9 @@ auto& registry = root->registry();
 ### 2. Logging Messages
 
 Use the helper macros, either in a class deriving from `Mira::Core::Object` or
-anywhere else (e.g. `main()`). Inside an `Object` member the message is
-attributed to `this`; elsewhere it simply has no object context:
+anywhere else (e.g. `main()`). They work in every context — member function,
+free function, lambda, static member function — and behave exactly like
+`qInfo()`/`qDebug()`/...:
 
 ```cpp
 #include "mira/core/Object.h"
@@ -63,6 +64,30 @@ int main(int argc, char** argv) {
     Mira::Core::installLogHandler();
     mInfo() << "No object context here"; // works in free functions too
     // ...
+}
+```
+
+**Object attribution.** While a `Mira::Core::Object` lives, it is the object in
+scope, and every message logged in that time is attributed to it — no matter
+where the message is logged from. The object context is therefore available in
+free functions and lambdas as well, not only in member functions:
+
+```cpp
+MyObject obj;
+obj.work();          // attributed to obj
+[]() { mInfo() << "also attributed to obj"; }();   // attributed to obj
+MyObject::staticWork();                            // attributed to obj
+```
+
+An object can be named explicitly to override the one in scope, and an
+`ObjectScope` puts an object in scope for a whole block:
+
+```cpp
+miraInfoObject(obj) << "attributed to obj";
+
+{
+    Mira::Core::ObjectScope scope(obj);
+    mInfo() << "attributed to obj";
 }
 ```
 

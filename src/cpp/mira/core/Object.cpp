@@ -12,6 +12,10 @@ namespace Mira {
             instanceName(instanceName),
             instanceId(Root::getInstance()->registry().generateInstanceId(this->name))
         {
+            // The object is in scope from here on, so every message logged while it
+            // lives is attributed to it.
+            Details::pushMiraObject(this);
+
             Root::getInstance()->registry().add(this);
             miraDebug() << "Constructed";
         }
@@ -20,6 +24,10 @@ namespace Mira {
         {
             Root::getInstance()->registry().remove(this);
             miraDebug() << "Destructed";
+
+            // The object leaves the scope last, so the message above is still
+            // attributed to it.
+            Details::popMiraObject(this);
         }
 
         bool Object::hasName() const

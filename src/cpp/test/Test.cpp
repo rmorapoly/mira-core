@@ -34,9 +34,8 @@ void Test::testCase1()
 
     mInfo() << "log pattern" << Mira::Core::logPattern();
     MObject mObj;
-    mInfo() << "test mInfo";
-    (::Mira::Core::LogObjectScope(miraLogObject()),
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical());
+    mInfoObject().nospace() << "test mInfo" << "here";
+    mInfo().noquote() << "clear";
 }
 
 void Test::cleanupTestCase()

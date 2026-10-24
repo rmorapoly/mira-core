@@ -45,6 +45,9 @@ namespace Mira {
          *  - Public fields (`name`, `instanceId`, `instanceName`) consumed by the
          *    Mira log handler to annotate messages emitted through the `miraInfo()`
          *    family of macros.
+         *  - An object scope: while the object lives it is the object in scope, so
+         *    every `miraInfo()`-family message logged in that time is attributed to
+         *    it, wherever it is logged from.
          *
          * All objects that want Mira's logging, introspection, and registry features
          * should inherit from this class.
@@ -95,17 +98,6 @@ namespace Mira {
              * @brief Whether the object has a user-defined instanceName set.
              */
             bool hasInstanceName() const;
-
-            /**
-             * @brief Returns this object for log attribution.
-             *
-             * Hides the global `miraLogObject()` fallback (which returns `nullptr`)
-             * whenever the `miraInfo()` family of macros is used inside a member
-             * function of this class or of a derived class. See `Log.h`.
-             *
-             * @return `this`, as a `QObject`.
-             */
-            const QObject* miraLogObject() const { return this; }
 
             /**
              * @brief Equality operator, comparing name + instanceName + instanceId.

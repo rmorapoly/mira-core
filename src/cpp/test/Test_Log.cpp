@@ -86,9 +86,21 @@ void Test_Log::test()
     class Tracked : public Mira::Core::Object {
     public:
         Tracked() MIRA_DECLARE_OBJECT {}
+
+        static void staticWork() {
+            // A static member function has no `this`, but the object that is in
+            // scope still provides the attribution.
+            miraInfo() << "static work";
+        }
+
         void work() {
             miraInfo() << "working" << 42;
             miraWarning() << "careful";
+
+            // A lambda without captures has no `this` either. The mInfo family
+            // compiles everywhere and is attributed to the object in scope.
+            []() { miraInfo() << "from lambda"; }();
+            [this]() { miraInfo() << "from capturing lambda"; }();
         }
         void formatting() {
             // The mInfo family returns a real QDebug, so its whole API applies and
@@ -102,6 +114,7 @@ void Test_Log::test()
 
     Tracked tracked;
     tracked.work();
+    Tracked::staticWork();
 
     // The raw message carries only the user text; the object context is added
     // by the message handler through the pattern placeholders.
@@ -114,6 +127,61 @@ void Test_Log::test()
     QVERIFY(warningIndex >= 0);
     QCOMPARE(capture.types.at(warningIndex), QtWarningMsg);
     QCOMPARE(capture.objects.at(warningIndex), static_cast<const QObject*>(&tracked));
+
+    // The object in scope provides the attribution in every context: in a static
+    // member function and in a lambda without captures there is no `this` to
+    // take, but the object that is in scope is still the one that is logged.
+    const int staticIndex = capture.messages.indexOf(QStringLiteral("static work"));
+    QVERIFY(staticIndex >= 0);
+    QCOMPARE(capture.objects.at(staticIndex), static_cast<const QObject*>(&tracked));
+
+    const int lambdaIndex = capture.messages.indexOf(QStringLiteral("from lambda"));
+    QVERIFY(lambdaIndex >= 0);
+    QCOMPARE(capture.objects.at(lambdaIndex), static_cast<const QObject*>(&tracked));
+
+    const int capturingLambdaIndex = capture.messages.indexOf(QStringLiteral("from capturing lambda"));
+    QVERIFY(capturingLambdaIndex >= 0);
+    QCOMPARE(capture.objects.at(capturingLambdaIndex), static_cast<const QObject*>(&tracked));
+
+    // An object can be named explicitly, which overrides the one in scope.
+    {
+        Mira::Core::Object explicitObject(QStringLiteral("Explicit"), QString());
+        miraInfoObject(&explicitObject) << "explicit object";
+        const int explicitIndex = capture.messages.indexOf(QStringLiteral("explicit object"));
+        QVERIFY(explicitIndex >= 0);
+        QCOMPARE(capture.objects.at(explicitIndex), static_cast<const QObject*>(&explicitObject));
+
+        // An object scope does the same for a whole block.
+        {
+            Mira::Core::ObjectScope scope(&explicitObject);
+            miraInfo() << "scoped object";
+        }
+        const int scopedIndex = capture.messages.indexOf(QStringLiteral("scoped object"));
+        QVERIFY(scopedIndex >= 0);
+        QCOMPARE(capture.objects.at(scopedIndex), static_cast<const QObject*>(&explicitObject));
+    }
+
+    // With that object gone, the object that was in scope before is back.
+    miraInfo() << "back in scope";
+    const int backIndex = capture.messages.indexOf(QStringLiteral("back in scope"));
+    QVERIFY(backIndex >= 0);
+    QCOMPARE(capture.objects.at(backIndex), static_cast<const QObject*>(&tracked));
+
+    // A nested object takes over the scope, and gives it back when it dies.
+    const QObject* nestedObject = nullptr;
+    {
+        Mira::Core::Object nested(QStringLiteral("Nested"), QString());
+        nestedObject = &nested;
+        miraInfo() << "in nested scope";
+    }
+    const int nestedIndex = capture.messages.indexOf(QStringLiteral("in nested scope"));
+    QVERIFY(nestedIndex >= 0);
+    QCOMPARE(capture.objects.at(nestedIndex), nestedObject);
+
+    miraInfo() << "after nested scope";
+    const int afterNestedIndex = capture.messages.indexOf(QStringLiteral("after nested scope"));
+    QVERIFY(afterNestedIndex >= 0);
+    QCOMPARE(capture.objects.at(afterNestedIndex), static_cast<const QObject*>(&tracked));
 
     // QDebug formatting and modifiers behave exactly like qInfo()/qDebug()/...
     tracked.formatting();
