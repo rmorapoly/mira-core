@@ -34,7 +34,7 @@ void Test::testCase1()
 
     mInfo() << "log pattern" << Mira::Core::logPattern();
     MObject mObj;
-    mInfoObject().nospace() << "test mInfo" << "here";
+    //    mInfo().nospace() << "test mInfo" << "here";
     mInfo().noquote() << "clear";
 }
 

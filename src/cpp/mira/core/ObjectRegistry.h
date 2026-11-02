@@ -26,7 +26,8 @@ namespace Mira {
          * @code
          * auto& registry = Mira::Root::getInstance()->registry();
          * Object* obj = new Object("MyObject");
-         * int total = registry.count("MyObject");       // Get number of instances
+         * int total = registry.count("MyObject");   // instances of one name
+         * int all = registry.countAll();            // every registered object
          * Object* sameObj = registry.get("MyObject");   // Retrieve first instance
          * @endcode
          */
@@ -51,6 +52,17 @@ namespace Mira {
             int count(const QString& objName = STRINGIFY(Mira::Core::Object)) const;
 
             /**
+             * @brief Returns the number of all registered objects.
+             *
+             * Counts every `Mira::Core::Object` the registry currently holds,
+             * across all names - the counterpart of @ref count, which counts one
+             * name only.
+             *
+             * @return The total number of registered objects.
+             */
+            int countAll() const;
+
+            /**
              * @brief Retrieves a specific object by name and instance ID.
              *
              * @param objName The object name to search for.
@@ -69,9 +81,15 @@ namespace Mira {
 
         private:
             QMap<QString, QMap<int, Object*>> objNameToObjMap; ///< Internal mapping of objects by name and instance ID.
+            int objectCount;                                   ///< Number of objects across all names, kept by add/remove.
 
             /**
              * @brief Generates a new instance ID for a given object name.
+             *
+             * Never reuses an id that is still registered, so ids of live
+             * objects of one name are always unique - even after other
+             * instances were destroyed.
+             *
              * @param objName The name of the object.
              * @return A unique integer ID for this object instance.
              */

@@ -60,11 +60,15 @@ void Test_Log::initTestCase()
 
 void Test_Log::handlerPatternReverse()
 {
-    // installLogHandler() makes Qt use Mira's default pattern; uninstallLogHandler()
-    // gives Qt its own built-in default back.
+    // setLogPattern() leaves Mira's placeholder-free expansion of the pattern in
+    // Qt's process-wide pattern; installLogHandler() does not touch the pattern,
+    // so foreign handlers keep rendering it.
+    Mira::Core::setLogPattern(QStringLiteral("[%{type}] %{message}"));
     Mira::Core::installLogHandler();
-    QVERIFY(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")) != QStringLiteral("m"));
+    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
+             QStringLiteral("[info] m"));
 
+    // uninstallLogHandler() gives Qt its own built-in default back.
     Mira::Core::uninstallLogHandler();
     QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")), QStringLiteral("m"));
 
@@ -73,9 +77,95 @@ void Test_Log::handlerPatternReverse()
     QCOMPARE(qFormatLogMessage(QtInfoMsg, ctx, QStringLiteral("m")), QStringLiteral("cat: m"));
 }
 
+void Test_Log::installKeepsUserPattern()
+{
+    // A pattern set by the user survives install/reinstall: the install must not
+    // fall back to the default pattern.
+    Mira::Core::setLogPattern(QStringLiteral("user-pattern %{message}"));
+    Mira::Core::installLogHandler();
+    Mira::Core::installLogHandler();
+    QCOMPARE(Mira::Core::logPattern(), QStringLiteral("user-pattern %{message}"));
+    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
+             QStringLiteral("user-pattern m"));
+
+    Mira::Core::reinstallLogHandler();
+    QCOMPARE(Mira::Core::logPattern(), QStringLiteral("user-pattern %{message}"));
+
+    Mira::Core::uninstallLogHandler();
+}
+
+void Test_Log::messageIndexIncrements()
+{
+    // %{messageIndex} is Mira's row count: it advances by one per formatted
+    // message. Qt has no token of its own here, so Mira consumes it.
+    Mira::Core::setLogPattern(QStringLiteral("%{messageIndex}|%{message}"));
+
+    const QString first = Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(),
+                                                       QStringLiteral("one"), nullptr);
+    const QString second = Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(),
+                                                        QStringLiteral("two"), nullptr);
+
+    QVERIFY(first.endsWith(QStringLiteral("|one")));
+    QVERIFY(second.endsWith(QStringLiteral("|two")));
+    QVERIFY(!first.contains(QStringLiteral("%{messageIndex}")));
+
+    const int firstBar = first.indexOf(QLatin1Char('|'));
+    const int secondBar = second.indexOf(QLatin1Char('|'));
+    QVERIFY(firstBar > 0);
+    QCOMPARE(second.mid(0, secondBar).toULongLong(),
+             first.mid(0, firstBar).toULongLong() + 1);
+
+    // Without the token the index takes no part in the output.
+    Mira::Core::setLogPattern(QStringLiteral("%{message}"));
+    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(),
+                                          QStringLiteral("plain"), nullptr),
+             QStringLiteral("plain"));
+}
+
+void Test_Log::logSinkReceivesMessages()
+{
+    // The sink is an additional consumer: the message still goes to the console
+    // and the same formatted line is handed to the sink.
+    Mira::Core::setLogPattern(QStringLiteral("%{message}"));
+    Mira::Core::installLogHandler();
+
+    QStringList sunk;
+    Mira::Core::setLogSink([&sunk](QtMsgType, const QMessageLogContext&, const QString& message) {
+        sunk << message;
+    });
+
+    miraInfo() << "sink-me";
+
+    // Removed before any assertion, so an early return cannot leave a sink
+    // pointing at the dead local.
+    Mira::Core::setLogSink(nullptr);
+    Mira::Core::uninstallLogHandler();
+
+    QVERIFY(sunk.contains(QStringLiteral("sink-me")));
+
+    // Without a sink nothing is collected anymore.
+    Mira::Core::installLogHandler();
+    miraInfo() << "after-sink";
+    Mira::Core::uninstallLogHandler();
+    QVERIFY(!sunk.contains(QStringLiteral("after-sink")));
+}
+
+void Test_Log::patternAccessors()
+{
+    // Both defaults are public, so they can be inspected, extended or restored.
+    QVERIFY(Mira::Core::defaultPattern().contains(QStringLiteral("%{message}")));
+    QVERIFY(Mira::Core::defaultPattern().contains(QStringLiteral("%{messageIndex}")));
+    QCOMPARE(Mira::Core::qtDefaultPattern(),
+             QStringLiteral("%{if-category}%{category}: %{endif}%{message}"));
+
+    Mira::Core::setLogPattern(Mira::Core::defaultPattern());
+    QCOMPARE(Mira::Core::logPattern(), Mira::Core::defaultPattern());
+}
+
 void Test_Log::cleanupTestCase()
 {
-    // Restore the default handler/pattern so later tests and the app keep them.
+    // Restore the default pattern and handler so later tests and the app keep them.
+    Mira::Core::setLogPattern(Mira::Core::defaultPattern());
     Mira::Core::installLogHandler();
 }
 
@@ -143,22 +233,25 @@ void Test_Log::test()
     QVERIFY(capturingLambdaIndex >= 0);
     QCOMPARE(capture.objects.at(capturingLambdaIndex), static_cast<const QObject*>(&tracked));
 
-    // An object can be named explicitly, which overrides the one in scope.
+    // An ObjectScope attributes a whole block to a chosen object.
     {
         Mira::Core::Object explicitObject(QStringLiteral("Explicit"), QString());
-        miraInfoObject(&explicitObject) << "explicit object";
+        {
+            Mira::Core::ObjectScope scope(&explicitObject);
+            miraInfo() << "explicit object";
+        }
         const int explicitIndex = capture.messages.indexOf(QStringLiteral("explicit object"));
         QVERIFY(explicitIndex >= 0);
         QCOMPARE(capture.objects.at(explicitIndex), static_cast<const QObject*>(&explicitObject));
 
-        // An object scope does the same for a whole block.
+        // Scoping another object overrides the innermost one for the block.
         {
-            Mira::Core::ObjectScope scope(&explicitObject);
+            Mira::Core::ObjectScope scope(&tracked);
             miraInfo() << "scoped object";
         }
         const int scopedIndex = capture.messages.indexOf(QStringLiteral("scoped object"));
         QVERIFY(scopedIndex >= 0);
-        QCOMPARE(capture.objects.at(scopedIndex), static_cast<const QObject*>(&explicitObject));
+        QCOMPARE(capture.objects.at(scopedIndex), static_cast<const QObject*>(&tracked));
     }
 
     // With that object gone, the object that was in scope before is back.

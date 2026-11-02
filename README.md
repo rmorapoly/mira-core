@@ -14,7 +14,11 @@ live under `Mira::Core`.
   pipeline, so `qInstallMessageHandler()` and Qt's message patterns keep
   working. Mira fills the originating object's context into the pattern tokens
   `%{objectName}`, `%{objectInstanceId}`, `%{objectInstanceName}` and
-  `%{object}` before Qt renders the message (see `Mira::Core::setLogPattern()`).
+  `%{object}`, and a per-message sequence number (row count) into
+  `%{messageIndex}`, before Qt renders the message (see
+  `Mira::Core::setLogPattern()`).
+- **Extra log sinks**: every message can additionally go to your own handler —
+  console and sink at the same time (see `Mira::Core::setLogSink()`).
 - **Object registration**: automatically register and track objects using
   `Mira::Core::ObjectRegistry`.
 - **Singleton entry point**: access everything through `Mira::Root`.
@@ -79,12 +83,10 @@ obj.work();          // attributed to obj
 MyObject::staticWork();                            // attributed to obj
 ```
 
-An object can be named explicitly to override the one in scope, and an
-`ObjectScope` puts an object in scope for a whole block:
+An `ObjectScope` attributes a whole block to a chosen object — including an
+object other than the innermost one in scope:
 
 ```cpp
-miraInfoObject(obj) << "attributed to obj";
-
 {
     Mira::Core::ObjectScope scope(obj);
     mInfo() << "attributed to obj";
@@ -93,22 +95,45 @@ miraInfoObject(obj) << "attributed to obj";
 
 Each message is routed through Qt's logging pipeline. Mira fills the Mira
 placeholders (`%{object}`, `%{objectName}`, `%{objectInstanceId}`,
-`%{objectInstanceName}`) from the emitting object and lets Qt render the rest
-with `qFormatLogMessage()`, so `%{time}`, `%{type}`, `%{file}`, `%{line}`,
-`%{function}`, `%{category}`, `%{pid}`, `%{appname}` and `%{message}` keep Qt's
-own semantics. `Mira::Core::installLogHandler()` installs the handler and a
-readable default pattern; use `Mira::Core::setLogPattern()` to customize it:
+`%{objectInstanceName}`) from the emitting object plus `%{messageIndex}`, its
+own per-message sequence number — a row count over every message Mira formats.
+Qt has no token of its own for this, so Mira consumes it before Qt renders the
+line; the token is optional, and a pattern without it keeps the cached,
+allocation-free path. The rest is rendered by `qFormatLogMessage()`, so
+`%{time}`, `%{type}`, `%{file}`, `%{line}`, `%{function}`, `%{category}`,
+`%{pid}`, `%{appname}` and `%{message}` keep Qt's own semantics.
+
+`Mira::Core::installLogHandler()` installs the handler and keeps the pattern
+you set — `Mira::Core::defaultPattern()` until you customize it — so a pattern
+set before installing is never overwritten. Use `Mira::Core::setLogPattern()`
+to choose one, and `Mira::Core::defaultPattern()` /
+`Mira::Core::qtDefaultPattern()` to fetch Mira's and Qt's defaults:
 
 ```cpp
-Mira::Core::setLogPattern("[%{time hh:mm:ss}]%{object} %{message}");
+Mira::Core::setLogPattern("[%{time hh:mm:ss}]%{messageIndex} %{object} %{message}");
+// later, back to the default:
+Mira::Core::setLogPattern(Mira::Core::defaultPattern());
 ```
 
 Qt's process-wide pattern is not rewritten for every message: it is only
-updated when the emitting object changes (in practice, once per object).
-Whenever a message has no object — and on `installLogHandler()`,
-`uninstallLogHandler()` and `setLogPattern()` — the pattern is left in its
-placeholder-free form, so `qInstallMessageHandler()` handlers of your own,
-QtTest, and Qt's default handler never warn about Mira placeholders.
+updated when the emitting object changes (in practice, once per object) —
+except for patterns that use `%{messageIndex}`, whose index changes per message
+and is therefore re-rendered per message. Whenever a message has no object —
+and on `installLogHandler()`, `uninstallLogHandler()` and `setLogPattern()` —
+the pattern is left in its placeholder-free form, so `qInstallMessageHandler()`
+handlers of your own, QtTest, and Qt's default handler never warn about Mira
+placeholders.
+
+Messages are written to the console *and* can be passed to your own extra
+handler — e.g. to mirror them into a file, a widget or a network stream:
+
+```cpp
+Mira::Core::setLogSink([](QtMsgType, const QMessageLogContext&,
+                          const QString& message) {
+    myLogFile.write(message + QLatin1Char('\n'));
+});
+// later: Mira::Core::setLogSink(nullptr);
+```
 
 The pattern is applied in two ways:
 
@@ -159,6 +184,7 @@ public:
 
 MyObject obj;
 
-int total = Mira::Root::getInstance()->registry().count("MyObject");
+int total = Mira::Root::getInstance()->registry().count("MyObject");  // one name
+int all = Mira::Root::getInstance()->registry().countAll();             // every object
 auto retrieved = Mira::Root::getInstance()->registry().get("MyObject");
 ```

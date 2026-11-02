@@ -3,14 +3,46 @@
 #include <QDebug>
 #include <QPointer>
 #include <QString>
-#include <QVector>
 #include <QtCore/qlogging.h>
+#include <functional>
+
 #include "MiraCoreImport.h"
 
 class QObject;
 
 namespace Mira {
     namespace Core {
+
+        /**
+         * @brief Returns Mira's default message pattern.
+         *
+         * Renders time, severity, the message sequence number
+         * (`%{messageIndex}`), the emitting object's context
+         * (`%{if-object}[%{object}] %{endif}`) and the message itself.
+         *
+         * Intended for use with @ref setLogPattern, e.g. to return to the
+         * default after a custom pattern:
+         * @code
+         * Mira::Core::setLogPattern(Mira::Core::defaultPattern());
+         * @endcode
+         *
+         * @return The default pattern (never empty).
+         */
+        MIRA_CORE_EXPORT const QString& defaultPattern();
+
+        /**
+         * @brief Returns Qt's built-in default message pattern.
+         *
+         * Hard-coded in Qt's `qlogging.cpp` (Qt offers no getter for it). An
+         * *empty* pattern is not equivalent: it makes `qFormatLogMessage()`
+         * return an empty string, so nothing is printed at all.
+         *
+         * Useful together with @ref uninstallLogHandler, which hands this
+         * pattern back to Qt.
+         *
+         * @return Qt's default pattern (`%{if-category}%{category}: %{endif}%{message}`).
+         */
+        MIRA_CORE_EXPORT const QString& qtDefaultPattern();
 
         /**
          * @brief Sets the message pattern used by the Mira log handler.
@@ -26,8 +58,14 @@ namespace Mira {
          *  - `%{object}`             the composed `name:instanceId`, plus
          *                            `#instanceName` when the object has one.
          *
+         * In addition, Mira maintains a message sequence number, a row count
+         * over every message it formats, and exposes it as:
+         *  - `%{messageIndex}`       1-based index of the message (optional;
+         *                            Qt has no token of its own here, so Mira
+         *                            consumes it before Qt renders the pattern).
+         *
          * When no `Mira::Core::Object` is emitting (plain `qDebug()`, or a
-         * `QObject` that is not a Mira `Object`), the Mira placeholders expand to
+         * `QObject` that is not a Mira `Object`), the object placeholders expand to
          * `unknown`, so the object part of the pattern is clearly marked as absent.
          *
          * Like Qt's `%{if-category}...%{endif}`, each Mira placeholder also has a
@@ -42,14 +80,22 @@ namespace Mira {
          * part entirely for messages that have no object context. Mira's conditions
          * and Qt's own conditions may be mixed in one pattern.
          *
+         * The pattern is remembered as given: @ref installLogHandler keeps
+         * whatever was set last (until changed again), so a pattern set before
+         * installing the handler is not overwritten by the default. Use
+         * @ref defaultPattern to restore the default explicitly.
+         *
          * Because `qFormatLogMessage()` always reads Qt's process-wide pattern, Mira
          * keeps that pattern in sync with the emitting object. It is written once per
          * call here, and per message only when the emitting object changes - never for
-         * every message, and never for messages that have no object. The same applies
-         * to @ref installLogHandler and @ref uninstallLogHandler, which leave the
-         * placeholder-free (`unknown`) form in place so foreign handlers (QtTest, a
-         * user-installed handler, Qt's default handler) always format a pattern that
-         * contains no Mira placeholders.
+         * every message, and never for messages that have no object. The only
+         * exception is a pattern that uses `%{messageIndex}`: the index changes per
+         * message, so such a pattern is re-rendered for every message (that is the
+         * price of the token; patterns without it keep the cached, allocation-free
+         * path). The same applies to @ref installLogHandler and
+         * @ref uninstallLogHandler, which leave the placeholder-free (`unknown`) form
+         * in place so foreign handlers (QtTest, a user-installed handler, Qt's default
+         * handler) always format a pattern that contains no Mira placeholders.
          *
          * @param pattern The message pattern.
          */
@@ -57,16 +103,57 @@ namespace Mira {
 
         /**
          * @brief Returns the message pattern currently used by the Mira log handler.
+         *
+         * Before the first @ref setLogPattern call this is @ref defaultPattern().
+         *
          * @return The active pattern.
          */
         MIRA_CORE_EXPORT QString logPattern();
 
         /**
-         * @brief Installs the Mira message handler and selects the default pattern.
+         * @brief The extra sink registered with @ref setLogSink.
          *
-         * The default pattern renders time, severity, then the emitting object's
-         * context (`%{object}`, `%{objectName}:%{objectInstanceId}` and
-         * `%{objectInstanceName}`) and finally the message itself.
+         * @param type    The Qt message type.
+         * @param context The Qt message log context (file/line/function/category).
+         * @param message The formatted message, exactly as it was written to the
+         *                console.
+         */
+        using LogSink = std::function<void(QtMsgType type,
+                                           const QMessageLogContext& context,
+                                           const QString& message)>;
+
+        /**
+         * @brief Registers an extra sink for the messages Mira's handler produces.
+         *
+         * Every message is still written to the console; the sink is an
+         * *additional* consumer, e.g. to mirror the log into a file, a widget or
+         * a network stream:
+         * @code
+         * Mira::Core::setLogSink([](QtMsgType, const QMessageLogContext&,
+         *                           const QString& message) {
+         *     myLogFile.write(message + QLatin1Char('\n'));
+         * });
+         * @endcode
+         *
+         * The sink is called from the logging thread after the console write,
+         * while the object context of the message is still in effect. It must
+         * not log through Mira itself (such messages fall back to the raw
+         * re-entrancy path) and must not call back into Mira's handler/pattern
+         * control functions. Pass `nullptr` to remove the sink.
+         *
+         * The sink is only consulted while Mira's handler is installed
+         * (@ref installLogHandler) and is kept across install/uninstall cycles.
+         *
+         * @param sink The sink to call, or an empty `LogSink` to remove one.
+         */
+        MIRA_CORE_EXPORT void setLogSink(LogSink sink);
+
+        /**
+         * @brief Installs the Mira message handler.
+         *
+         * The pattern in effect is kept as it is: whatever @ref setLogPattern
+         * last set - @ref defaultPattern until the application customizes it.
+         * Repeated calls do nothing while the handler is installed.
          *
          * The pattern is applied in two ways depending on the emitter:
          *  - From a `Mira::Core::Object`, the pattern is applied in full, so the
@@ -79,8 +166,8 @@ namespace Mira {
          * All standard Qt placeholders (`%{time}`, `%{type}`, `%{file}`, ...) apply
          * in both cases.
          *
-         * @ref uninstallLogHandler reverses this by restoring Qt's own default
-         * message pattern.
+         * @ref uninstallLogHandler reverses this by restoring Qt's own message
+         * pattern (@ref qtDefaultPattern).
          */
         MIRA_CORE_EXPORT void installLogHandler();
 
@@ -94,9 +181,11 @@ namespace Mira {
          *
          * Restores the message handler that was active before @ref installLogHandler
          * was called (Qt's default handler, or `nullptr` if none was installed) and
-         * gives Qt its own default message pattern back
-         * (`%{if-category}%{category}: %{endif}%{message}`), so Qt behaves as if Mira
-         * had never been installed. Safe to call when the Mira handler is not installed.
+         * gives Qt its own default message pattern back (@ref qtDefaultPattern,
+         * `%{if-category}%{category}: %{endif}%{message}`), so Qt behaves as if Mira
+         * had never been installed. Safe to call when the Mira handler is not
+         * installed. The pattern set with @ref setLogPattern is remembered and
+         * becomes active again with the next message after a later install.
          */
         MIRA_CORE_EXPORT void uninstallLogHandler();
 
@@ -116,7 +205,8 @@ namespace Mira {
          * The Mira placeholders are expanded from @p object, then Qt's
          * `qFormatLogMessage()` expands every remaining placeholder, so Qt tokens
          * keep Qt's own semantics. Qt's process-wide pattern is updated only when
-         * the emitting object changes (see @ref setLogPattern).
+         * the emitting object changes (see @ref setLogPattern). When the pattern
+         * uses `%{messageIndex}`, this call also advances the sequence number.
          *
          * @param type    The Qt message type.
          * @param context The Qt message log context (file/line/function/category).
@@ -147,83 +237,66 @@ namespace Mira {
             }
 
             /**
-             * @brief The Mira objects that are in scope on this thread.
+             * @brief The Mira object that is in scope on this thread.
              *
-             * The innermost (last) object is the one that the `miraInfo()` family
-             * attributes its messages to. The objects are held weakly, so an object
-             * that dies is dropped from the scope even if it was destroyed on
-             * another thread.
+             * A single weak slot: the innermost object is the one the
+             * `miraInfo()` family attributes its messages to. The slot holds a
+             * `QPointer`, so an object that dies elsewhere (even on another
+             * thread) reads back as `nullptr` instead of dangling - no stack of
+             * entries has to be kept or scanned, which keeps logging down to one
+             * pointer load per statement.
              *
              * @note As for every `QObject`, an object is expected to be destroyed
              * on the thread that created it.
              *
-             * @return A reference to the current thread's object-scope stack.
+             * @return A reference to the current thread's object-scope slot.
              */
-            inline QVector<QPointer<QObject>>& miraObjectScopes() noexcept
+            inline QPointer<QObject>& objectScope() noexcept
             {
-                thread_local QVector<QPointer<QObject>> scopes;
-                return scopes;
+                thread_local QPointer<QObject> scope;
+                return scope;
             }
 
             /**
              * @brief Puts @p object in scope.
+             *
              * @param object The object to put in scope, or `nullptr`.
+             * @return The scope that was active before, to be handed back to
+             *         @ref popObjectScope.
              */
-            inline void pushMiraObject(const QObject* object) noexcept
+            inline QPointer<QObject> pushObjectScope(const QObject* object) noexcept
             {
+                QPointer<QObject> previous = objectScope();
                 // QPointer only tracks non-const pointers; the object itself is
                 // never modified through it.
-                miraObjectScopes().append(const_cast<QObject*>(object));
+                objectScope() = const_cast<QObject*>(object);
+                return previous;
             }
 
             /**
              * @brief Takes @p object out of scope again.
-             * @param object The object to take out of scope.
+             *
+             * The previous scope is only restored while @p object is still the
+             * innermost one: scopes may be closed in a different order than they
+             * were opened, and a nested object must keep the scope meanwhile.
+             *
+             * @param object   The object to take out of scope.
+             * @param previous The value @ref pushObjectScope returned.
              */
-            inline void popMiraObject(const QObject* object) noexcept
+            inline void popObjectScope(const QObject* object, const QPointer<QObject>& previous) noexcept
             {
-                QVector<QPointer<QObject>>& scopes = miraObjectScopes();
-
-                // The object may have been taken out of scope already, and the
-                // scopes are not necessarily closed in reverse order, so the
-                // matching entry is looked for.
-                for (int i = scopes.size() - 1; i >= 0; --i) {
-                    if (scopes.at(i).data() == object) {
-                        scopes.remove(i);
-                        return;
-                    }
-                }
+                if (objectScope().data() == object)
+                    objectScope() = previous;
             }
 
             /**
              * @brief The object a `miraInfo()`-family statement is attributed to.
              *
-             * @return The innermost Mira object that is in scope, or `nullptr`.
+             * @return The Mira object in scope, or `nullptr`.
              */
             inline const QObject* resolveLogObject() noexcept
             {
-                const QVector<QPointer<QObject>>& scopes = miraObjectScopes();
-
-                // Objects that were destroyed in the meantime are skipped.
-                for (int i = scopes.size() - 1; i >= 0; --i) {
-                    if (const QObject* object = scopes.at(i).data())
-                        return object;
-                }
-                return nullptr;
-            }
-
-            /**
-             * @brief The object a `miraInfo()`-family statement is attributed to.
-             *
-             * The explicit form overrides the object that is in scope, so a message
-             * can be attributed to an object other than the one in scope.
-             *
-             * @param object The object to attribute the message to, or `nullptr`.
-             * @return @p object.
-             */
-            inline const QObject* resolveLogObject(const QObject* object) noexcept
-            {
-                return object;
+                return objectScope().data();
             }
 
         } // namespace Details
@@ -233,7 +306,7 @@ namespace Mira {
          * @brief Publishes the emitting object for the current full expression (RAII).
          *
          * The `miraInfo()` family creates one of these for the current full
-         * expression and hands it to `Details::miraLogStream()`, which returns the
+         * expression and hands it to `Details::logStream()`, which returns the
          * `QDebug` to log to. The scope is destroyed after that stream, so the
          * object is still published when the message is flushed to the handler, and
          * it is guaranteed to be restored afterwards - even when nothing was
@@ -280,11 +353,13 @@ namespace Mira {
          * A `Mira::Core::Object` opens such a scope for its own lifetime, so
          * logging from inside one of its member functions needs no help. This class
          * is for the cases where the object in scope should be a specific one
-         * rather than the innermost living object.
+         * rather than the innermost living object:
          *
          * @code
-         * Mira::Core::ObjectScope scope(myObject);
-         * mInfo() << "attributed to myObject";
+         * {
+         *     Mira::Core::ObjectScope scope(myObject);
+         *     mInfo() << "attributed to myObject";
+         * }
          * @endcode
          */
         class ObjectScope
@@ -295,21 +370,22 @@ namespace Mira {
              * @param object The object to attribute messages to, or `nullptr`.
              */
             explicit ObjectScope(const QObject* object) noexcept :
-                object(object)
+                object(object),
+                previous(Details::pushObjectScope(object))
             {
-                Details::pushMiraObject(object);
             }
 
             /** @brief Takes the object out of scope again. */
             ~ObjectScope() noexcept
             {
-                Details::popMiraObject(object);
+                Details::popObjectScope(object, previous);
             }
 
         private:
             Q_DISABLE_COPY(ObjectScope)
 
-            const QObject* object;    ///< Object taken out of scope on destruction.
+            const QObject* object;            ///< Object taken out of scope on destruction.
+            QPointer<QObject> previous;       ///< Scope restored on destruction (weakly).
         };
 
         namespace Details {
@@ -331,7 +407,7 @@ namespace Mira {
              * @param stream The stream to log to.
              * @return @p stream.
              */
-            inline QDebug miraLogStream(const LogObjectScope&, QDebug stream)
+            inline QDebug logStream(const LogObjectScope&, QDebug stream)
             {
                 return stream;
             }
@@ -357,94 +433,49 @@ inline const QObject* miraLogObject() noexcept
 }
 
 /**
+ * @def MIRA_LOG_STREAM(stream)
+ * @brief (internal) Wraps a Qt logging statement in the object scope.
+ *
+ * All `miraInfo()`-family macros expand through this helper: it creates the
+ * @ref Mira::Core::LogObjectScope for the current full expression and hands
+ * @p stream to @ref Mira::Core::Details::logStream, which returns the `QDebug`
+ * to stream into.
+ */
+#define MIRA_LOG_STREAM(stream) (\
+    ::Mira::Core::Details::logStream(\
+        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
+        stream))
+
+/**
  * @def miraInfo()
  * @brief Logs an info message; behaves exactly like `qInfo()`.
  *
  * Usable anywhere: in a member function, in a free function, in a lambda, in a
  * static member function, ... The result is a `QDebug`, so the whole `QDebug`
- * API (`miraInfo().noquote() << ...`, `miraInfo().nospace() << ...`, ...) is
+ * API (`miraInfo().noquote() << ...`, `miraInfo().nospace() << ...`) is
  * available with `qInfo()`'s semantics.
  * @code
  * miraInfo().nospace() << "Some" << "info" << "message";
  * @endcode
  *
  * The message is attributed to the Mira object that is in scope (see
- * @ref Mira::Core::ObjectScope). Use @ref miraInfoObject() to attribute it to
- * a specific object instead.
+ * @ref Mira::Core::ObjectScope). To attribute a statement to another object,
+ * open an `ObjectScope` around it.
  */
-#define miraInfo() (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info()))
-
-/**
- * @def miraInfoObject(object)
- * @brief Logs an info message attributed to @p object.
- *
- * Behaves exactly like @ref miraInfo(), but the message is attributed to
- * @p object instead of the object that is in scope.
- * @code
- * miraInfoObject(myObject) << "attributed to myObject";
- * @endcode
- */
-#define miraInfoObject(object) (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject(object)), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info()))
+#define miraInfo() \
+    MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info())
 
 /** @def miraDebug() @brief Logs a debug message; behaves exactly like `qDebug()`. */
-#define miraDebug() (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).debug()))
-
-/**
- * @def miraDebugObject(object)
- * @brief Logs a debug message attributed to @p object.
- *
- * Behaves exactly like @ref miraDebug(), but the message is attributed to
- * @p object instead of the object that is in scope.
- */
-#define miraDebugObject(object) (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject(object)), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).debug()))
+#define miraDebug() \
+    MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).debug())
 
 /** @def miraWarning() @brief Logs a warning; behaves exactly like `qWarning()`. */
-#define miraWarning() (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning()))
-
-/**
- * @def miraWarningObject(object)
- * @brief Logs a warning attributed to @p object.
- *
- * Behaves exactly like @ref miraWarning(), but the message is attributed to
- * @p object instead of the object that is in scope.
- */
-#define miraWarningObject(object) (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject(object)), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning()))
+#define miraWarning() \
+    MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning())
 
 /** @def miraCritical() @brief Logs a critical message; behaves exactly like `qCritical()`. */
-#define miraCritical() (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical()))
-
-/**
- * @def miraCriticalObject(object)
- * @brief Logs a critical message attributed to @p object.
- *
- * Behaves exactly like @ref miraCritical(), but the message is attributed to
- * @p object instead of the object that is in scope.
- */
-#define miraCriticalObject(object) (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject(object)), \
-        QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical()))
+#define miraCritical() \
+    MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical())
 
 /**
  * @def miraFatal()
@@ -455,36 +486,13 @@ inline const QObject* miraLogObject() noexcept
  *
  * @note Fatal messages terminate the application.
  */
-#define miraFatal() (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
-        QDebug(QtFatalMsg)))
-
-/**
- * @def miraFatalObject(object)
- * @brief Logs a fatal message attributed to @p object.
- *
- * Behaves exactly like @ref miraFatal(), but the message is attributed to
- * @p object instead of the object that is in scope.
- *
- * @note Fatal messages terminate the application.
- */
-#define miraFatalObject(object) (\
-    ::Mira::Core::Details::miraLogStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject(object)), \
-        QDebug(QtFatalMsg)))
+#define miraFatal() MIRA_LOG_STREAM(QDebug(QtFatalMsg))
 
 /**
  * @brief Shorter names for easier call
  */
-#define mInfo()          miraInfo()
-#define mInfoObject(o)   miraInfoObject(o)
-#define mDebug()         miraDebug()
-#define mDebugObject(o)  miraDebugObject(o)
-#define mWarning()       miraWarning()
-#define mWarningObject(o) miraWarningObject(o)
-#define mCritical()      miraCritical()
-#define mCriticalObject(o) miraCriticalObject(o)
-#define mFatal()         miraFatal()
-#define mFatalObject(o)  miraFatalObject(o)
-
+#define mInfo()    miraInfo()
+#define mDebug()   miraDebug()
+#define mWarning() miraWarning()
+#define mCritical() miraCritical()
+#define mFatal()   miraFatal()

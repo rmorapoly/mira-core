@@ -12,8 +12,9 @@ int main(int argc, char* argv[])
     Mira::Core::installLogHandler();
 
     QTEST_SET_MAIN_SOURCE_PATH
-    auto exitCode = TestRegistry::instance().runAll(argc, argv);
-    //exitCode &= app.exec();
+    int exitCode = 1;
+    exitCode &= TestRegistry::instance().runAll(argc, argv);
+    // exitCode &= app.exec();
 
     qInfo() << "Application exited with code" << exitCode;
     return exitCode;

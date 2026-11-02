@@ -14,7 +14,7 @@ namespace Mira {
         {
             // The object is in scope from here on, so every message logged while it
             // lives is attributed to it.
-            Details::pushMiraObject(this);
+            previousScope = Details::pushObjectScope(this);
 
             Root::getInstance()->registry().add(this);
             miraDebug() << "Constructed";
@@ -27,7 +27,7 @@ namespace Mira {
 
             // The object leaves the scope last, so the message above is still
             // attributed to it.
-            Details::popMiraObject(this);
+            Details::popObjectScope(this, previousScope);
         }
 
         bool Object::hasName() const

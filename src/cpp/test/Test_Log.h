@@ -9,5 +9,9 @@ private slots:
     void initTestCase();
     void test();
     void handlerPatternReverse();
+    void installKeepsUserPattern();
+    void messageIndexIncrements();
+    void logSinkReceivesMessages();
+    void patternAccessors();
     void cleanupTestCase();
 };
