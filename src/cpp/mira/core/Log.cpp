@@ -414,7 +414,8 @@ namespace Mira {
 
             // The pattern is deliberately left alone: whatever setLogPattern last
             // set (defaultPattern until then) stays in effect, a pattern set
-            // before installing is not overwritten.
+            // before installing is not overwritten. Neither install nor uninstall
+            // ever changes the pattern - the application owns it.
             previousHandler = qInstallMessageHandler(messageHandler);
             handlerInstalled = true;
         }
@@ -436,14 +437,11 @@ namespace Mira {
             previousHandler = nullptr;
             handlerInstalled = false;
 
-            // Reverse installLogHandler(): hand Qt its own default pattern back, so its
-            // handler (and any other) behaves as if Mira had never touched the pattern.
-            // The pattern given to setLogPattern is kept in state and becomes active
-            // again with the message after the next install.
-            QMutexLocker patternLocker(&patternMutex);
-            qSetMessagePattern(qtDefaultPattern());
-            qtPatternObject = nullptr;
-            qtPatternValid = false;
+            // The pattern is deliberately left alone, just like on install: the
+            // application owns it. Qt's process-wide pattern keeps the last
+            // placeholder-free form Mira rendered, so whatever handler runs next
+            // formats a valid pattern. Use setLogPattern(qtDefaultPattern()) to
+            // hand Qt's own formatting back explicitly.
         }
     } // namespace Core
 } // namespace Mira

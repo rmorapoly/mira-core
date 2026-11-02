@@ -8,7 +8,7 @@ class Test_Log : public QObject
 private slots:
     void initTestCase();
     void test();
-    void handlerPatternReverse();
+    void uninstallKeepsPattern();
     void installKeepsUserPattern();
     void messageIndexIncrements();
     void logSinkReceivesMessages();

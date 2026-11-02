@@ -103,11 +103,12 @@ allocation-free path. The rest is rendered by `qFormatLogMessage()`, so
 `%{time}`, `%{type}`, `%{file}`, `%{line}`, `%{function}`, `%{category}`,
 `%{pid}`, `%{appname}` and `%{message}` keep Qt's own semantics.
 
-`Mira::Core::installLogHandler()` installs the handler and keeps the pattern
-you set — `Mira::Core::defaultPattern()` until you customize it — so a pattern
-set before installing is never overwritten. Use `Mira::Core::setLogPattern()`
-to choose one, and `Mira::Core::defaultPattern()` /
-`Mira::Core::qtDefaultPattern()` to fetch Mira's and Qt's defaults:
+You own the pattern: `Mira::Core::setLogPattern()` is the only function that
+changes it, and neither `Mira::Core::installLogHandler()` nor
+`Mira::Core::uninstallLogHandler()` ever touches it. Until you set one,
+`Mira::Core::logPattern()` reports `Mira::Core::defaultPattern()`; fetch Mira's
+and Qt's defaults with `Mira::Core::defaultPattern()` /
+`Mira::Core::qtDefaultPattern()` to use or restore them:
 
 ```cpp
 Mira::Core::setLogPattern("[%{time hh:mm:ss}]%{messageIndex} %{object} %{message}");
@@ -118,11 +119,10 @@ Mira::Core::setLogPattern(Mira::Core::defaultPattern());
 Qt's process-wide pattern is not rewritten for every message: it is only
 updated when the emitting object changes (in practice, once per object) —
 except for patterns that use `%{messageIndex}`, whose index changes per message
-and is therefore re-rendered per message. Whenever a message has no object —
-and on `installLogHandler()`, `uninstallLogHandler()` and `setLogPattern()` —
-the pattern is left in its placeholder-free form, so `qInstallMessageHandler()`
-handlers of your own, QtTest, and Qt's default handler never warn about Mira
-placeholders.
+and is therefore re-rendered per message. It is always pushed in its
+placeholder-free form, and install/uninstall leave it exactly as it is, so
+`qInstallMessageHandler()` handlers of your own, QtTest, and Qt's default
+handler never warn about Mira placeholders.
 
 Messages are written to the console *and* can be passed to your own extra
 handler — e.g. to mirror them into a file, a widget or a network stream:

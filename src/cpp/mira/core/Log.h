@@ -37,8 +37,11 @@ namespace Mira {
          * *empty* pattern is not equivalent: it makes `qFormatLogMessage()`
          * return an empty string, so nothing is printed at all.
          *
-         * Useful together with @ref uninstallLogHandler, which hands this
-         * pattern back to Qt.
+         * Mira never applies it on its own - install and uninstall leave the
+         * pattern alone - so hand Qt's own formatting back explicitly when wanted:
+         * @code
+         * Mira::Core::setLogPattern(Mira::Core::qtDefaultPattern());
+         * @endcode
          *
          * @return Qt's default pattern (`%{if-category}%{category}: %{endif}%{message}`).
          */
@@ -80,10 +83,11 @@ namespace Mira {
          * part entirely for messages that have no object context. Mira's conditions
          * and Qt's own conditions may be mixed in one pattern.
          *
-         * The pattern is remembered as given: @ref installLogHandler keeps
-         * whatever was set last (until changed again), so a pattern set before
-         * installing the handler is not overwritten by the default. Use
-         * @ref defaultPattern to restore the default explicitly.
+         * This is the only function that changes the pattern: it is remembered as
+         * given, and @ref installLogHandler / @ref uninstallLogHandler never touch
+         * it, so a pattern set before installing stays in effect - and stays in
+         * effect after uninstalling. The application owns the pattern; use
+         * @ref defaultPattern or @ref qtDefaultPattern to restore a known one.
          *
          * Because `qFormatLogMessage()` always reads Qt's process-wide pattern, Mira
          * keeps that pattern in sync with the emitting object. It is written once per
@@ -92,10 +96,11 @@ namespace Mira {
          * exception is a pattern that uses `%{messageIndex}`: the index changes per
          * message, so such a pattern is re-rendered for every message (that is the
          * price of the token; patterns without it keep the cached, allocation-free
-         * path). The same applies to @ref installLogHandler and
-         * @ref uninstallLogHandler, which leave the placeholder-free (`unknown`) form
-         * in place so foreign handlers (QtTest, a user-installed handler, Qt's default
-         * handler) always format a pattern that contains no Mira placeholders.
+         * path). @ref installLogHandler and @ref uninstallLogHandler never change
+         * the pattern at all: Qt's process-wide pattern keeps the last
+         * placeholder-free form Mira rendered, so foreign handlers (QtTest, a
+         * user-installed handler, Qt's default handler) always format a pattern
+         * that contains no Mira placeholders.
          *
          * @param pattern The message pattern.
          */
@@ -104,7 +109,10 @@ namespace Mira {
         /**
          * @brief Returns the message pattern currently used by the Mira log handler.
          *
-         * Before the first @ref setLogPattern call this is @ref defaultPattern().
+         * Complete in every situation: @ref defaultPattern until the application
+         * sets its own pattern with @ref setLogPattern, the given pattern after
+         * that - the same value before, during and after install/uninstall,
+         * which never change it.
          *
          * @return The active pattern.
          */
@@ -151,9 +159,10 @@ namespace Mira {
         /**
          * @brief Installs the Mira message handler.
          *
-         * The pattern in effect is kept as it is: whatever @ref setLogPattern
-         * last set - @ref defaultPattern until the application customizes it.
-         * Repeated calls do nothing while the handler is installed.
+         * The pattern is never touched: whatever @ref setLogPattern last set -
+         * @ref defaultPattern until the application customizes it - stays in
+         * effect, the application staying responsible for it. Repeated calls do
+         * nothing while the handler is installed.
          *
          * The pattern is applied in two ways depending on the emitter:
          *  - From a `Mira::Core::Object`, the pattern is applied in full, so the
@@ -166,8 +175,8 @@ namespace Mira {
          * All standard Qt placeholders (`%{time}`, `%{type}`, `%{file}`, ...) apply
          * in both cases.
          *
-         * @ref uninstallLogHandler reverses this by restoring Qt's own message
-         * pattern (@ref qtDefaultPattern).
+         * Neither this function nor @ref uninstallLogHandler ever changes the
+         * message pattern; @ref setLogPattern is the only way to do that.
          */
         MIRA_CORE_EXPORT void installLogHandler();
 
@@ -180,12 +189,14 @@ namespace Mira {
          * @brief Uninstalls the message handler installed by @ref installLogHandler.
          *
          * Restores the message handler that was active before @ref installLogHandler
-         * was called (Qt's default handler, or `nullptr` if none was installed) and
-         * gives Qt its own default message pattern back (@ref qtDefaultPattern,
-         * `%{if-category}%{category}: %{endif}%{message}`), so Qt behaves as if Mira
-         * had never been installed. Safe to call when the Mira handler is not
-         * installed. The pattern set with @ref setLogPattern is remembered and
-         * becomes active again with the next message after a later install.
+         * was called (Qt's default handler, or `nullptr` if none was installed), so
+         * Qt behaves as if Mira had never been installed. Safe to call when the Mira
+         * handler is not installed.
+         *
+         * The message pattern is deliberately left untouched - the application owns
+         * it. Set @ref qtDefaultPattern with @ref setLogPattern to hand Qt's own
+         * formatting back explicitly. The pattern set with @ref setLogPattern stays
+         * in effect for the next message after a later install.
          */
         MIRA_CORE_EXPORT void uninstallLogHandler();
 
@@ -255,38 +266,6 @@ namespace Mira {
             {
                 thread_local QPointer<QObject> scope;
                 return scope;
-            }
-
-            /**
-             * @brief Puts @p object in scope.
-             *
-             * @param object The object to put in scope, or `nullptr`.
-             * @return The scope that was active before, to be handed back to
-             *         @ref popObjectScope.
-             */
-            inline QPointer<QObject> pushObjectScope(const QObject* object) noexcept
-            {
-                QPointer<QObject> previous = objectScope();
-                // QPointer only tracks non-const pointers; the object itself is
-                // never modified through it.
-                objectScope() = const_cast<QObject*>(object);
-                return previous;
-            }
-
-            /**
-             * @brief Takes @p object out of scope again.
-             *
-             * The previous scope is only restored while @p object is still the
-             * innermost one: scopes may be closed in a different order than they
-             * were opened, and a nested object must keep the scope meanwhile.
-             *
-             * @param object   The object to take out of scope.
-             * @param previous The value @ref pushObjectScope returned.
-             */
-            inline void popObjectScope(const QObject* object, const QPointer<QObject>& previous) noexcept
-            {
-                if (objectScope().data() == object)
-                    objectScope() = previous;
             }
 
             /**
@@ -371,14 +350,22 @@ namespace Mira {
              */
             explicit ObjectScope(const QObject* object) noexcept :
                 object(object),
-                previous(Details::pushObjectScope(object))
+                previous(Details::objectScope())
             {
+                // QPointer only tracks non-const pointers; the object itself is
+                // never modified through it.
+                Details::objectScope() = const_cast<QObject*>(object);
             }
 
             /** @brief Takes the object out of scope again. */
             ~ObjectScope() noexcept
             {
-                Details::popObjectScope(object, previous);
+                // The previous scope is only restored while this object is still
+                // the innermost one: scopes may be closed in a different order than
+                // they were opened, and a nested object must keep the scope
+                // meanwhile.
+                if (Details::objectScope().data() == object)
+                    Details::objectScope() = previous;
             }
 
         private:

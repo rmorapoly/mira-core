@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QObject>
-#include <QPointer>
 #include <type_traits>
 #include "MiraCoreImport.h"
 #include "mira/Meta.h"
@@ -48,9 +47,10 @@ namespace Mira {
          *    family of macros.
          *  - An object scope: while the object lives it is the object in scope, so
          *    every `miraInfo()`-family message logged in that time is attributed to
-         *    it, wherever it is logged from. The scope is one weak thread-local
-         *    slot (see `Mira::Core::Details::objectScope()`), pushed on
-         *    construction and restored on destruction.
+         *    it, wherever it is logged from. It is a `Mira::Core::ObjectScope`
+         *    member over one weak thread-local slot (see
+         *    `Mira::Core::Details::objectScope()`): RAII does the pushing and
+         *    restoring, so the constructor and destructor carry no scope code.
          *
          * All objects that want Mira's logging, introspection, and registry features
          * should inherit from this class.
@@ -113,11 +113,12 @@ namespace Mira {
             friend bool operator!=(const Object& obj1, const Object& obj2);
 
         private:
-            /// The scope that was active before this object pushed itself (weakly),
-            /// restored when the object leaves the scope again. Weak, so a scope
-            /// restored onto an object that died in the meantime reads back as
-            /// `nullptr` instead of dangling.
-            QPointer<QObject> previousScope;
+            /// Keeps this object in scope for its whole lifetime: the RAII member
+            /// pushes the object on construction and restores the previous scope
+            /// on destruction, so no constructor/destructor code is needed. The
+            /// previous scope is held weakly, so one restored onto an object that
+            /// died in the meantime reads back as `nullptr` instead of dangling.
+            ObjectScope scope{this};
         };
 
     } // namespace Core

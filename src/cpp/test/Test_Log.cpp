@@ -55,10 +55,12 @@ struct MessageCapture
 
 void Test_Log::initTestCase()
 {
-
+    // Nothing has set a pattern yet: logPattern() reports the default. Only
+    // setLogPattern() ever changes it - install and uninstall never do.
+    QCOMPARE(Mira::Core::logPattern(), Mira::Core::defaultPattern());
 }
 
-void Test_Log::handlerPatternReverse()
+void Test_Log::uninstallKeepsPattern()
 {
     // setLogPattern() leaves Mira's placeholder-free expansion of the pattern in
     // Qt's process-wide pattern; installLogHandler() does not touch the pattern,
@@ -68,8 +70,16 @@ void Test_Log::handlerPatternReverse()
     QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
              QStringLiteral("[info] m"));
 
-    // uninstallLogHandler() gives Qt its own built-in default back.
+    // uninstallLogHandler() leaves the pattern exactly as it was: neither the
+    // pattern Mira reports nor the one Qt renders is reset behind the
+    // application's back.
     Mira::Core::uninstallLogHandler();
+    QCOMPARE(Mira::Core::logPattern(), QStringLiteral("[%{type}] %{message}"));
+    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
+             QStringLiteral("[info] m"));
+
+    // Handing Qt's own formatting back is the application's explicit choice.
+    Mira::Core::setLogPattern(Mira::Core::qtDefaultPattern());
     QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")), QStringLiteral("m"));
 
     // Qt's default prefixes the logging category when there is one.
