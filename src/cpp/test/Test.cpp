@@ -2,6 +2,8 @@
 #include "TestRegistery.h"
 #include "mira/core/Log.h"
 #include "mira/core/Object.h"
+#include <algorithm>
+#include <QThread>
 
 REGISTER_QT_TEST(Test)
 
@@ -11,35 +13,82 @@ Test::Test(QObject *parent)
 
 void Test::initTestCase()
 {
-    // Mira::Core::installLogHandler();
-
-    Mira::Core::installLogHandler();
-    Mira::Core::installLogHandler();
-    Mira::Core::installLogHandler();
-    Mira::Core::reinstallLogHandler();
-    Mira::Core::reinstallLogHandler();
-    Mira::Core::reinstallLogHandler();
-    Mira::Core::reinstallLogHandler();
     Mira::Core::reinstallLogHandler();
 }
 
-void Test::testCase1()
+void Test::test_multipleObjects()
 {
-    class MObject : public Mira::Core::Object {
+    class MiraObject : public Mira::Core::Object {
     public:
-        MObject() : Mira::Core::Object("MObject", "ins1") {
-            mInfo() << "my mobject msg";
+        MiraObject() MIRA_DECLARE_OBJECT {}
+        void func() {
+            mInfo() << "func";
         }
     };
+    MiraObject o1;
+    MiraObject o2;
+    MiraObject o3;
+    Mira::Core::setLogSink([](QtMsgType type,
+                           const QMessageLogContext& context,
+                           const QString& message){
+        QVERIFY(message.contains("MiraObject:0"));
+        Mira::Core::LogSink empty;
+        Mira::Core::setLogSink(empty);
+    });
+    o1.func();
+}
 
-    mInfo() << "log pattern" << Mira::Core::logPattern();
-    MObject mObj;
-    //    mInfo().nospace() << "test mInfo" << "here";
-    mInfo().noquote() << "clear";
+void Test::test_multiThread()
+{
+    class MiraObject : public Mira::Core::Object, public QThread {
+    public:
+        MiraObject(int index)
+            MIRA_DECLARE_OBJECT,
+            index(index) {
+        }
+        void func() {
+            mInfo() << "func" << index;
+        }
+        void run() override {
+            int i = 0;
+            while (i++ < 10) {
+                func();
+            }
+        }
+        const int index;
+    };
+    MiraObject o1(0);
+    MiraObject o2(1);
+    MiraObject o3(2);
+    MiraObject o4(3);
+    Mira::Core::setLogSink([](QtMsgType type,
+                           const QMessageLogContext& context,
+                           const QString& message){
+        static int counter = 0;
+        auto expected = QString(message.at(message.size() - 1)).toInt();
+        auto actual = QString(message.split(':').last()[0]).toInt();
+        QCOMPARE(actual, expected);
+        counter++;
+        if (counter >= 40) {
+            Mira::Core::LogSink empty;
+            Mira::Core::setLogSink(empty);
+        }
+    });
+    o1.start();
+    o2.start();
+    o3.start();
+    o4.start();
+    o1.wait();
+    o2.wait();
+    o3.wait();
+    o4.wait();
+    o1.quit();
+    o2.quit();
+    o3.quit();
+    o4.quit();
 }
 
 void Test::cleanupTestCase()
 {
     Mira::Core::uninstallLogHandler();
-
 }

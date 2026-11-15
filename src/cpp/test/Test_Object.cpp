@@ -10,6 +10,11 @@ Test_Object::Test_Object(QObject *parent)
     : QObject{parent}
 {}
 
+void Test_Object::initTestCase()
+{
+    Mira::Core::reinstallLogHandler();
+}
+
 void Test_Object::test()
 {
     Object obj("");
@@ -34,4 +39,8 @@ void Test_Object::test()
     QCOMPARE(child0.name, STRINGIFY(ChildObj));
     QCOMPARE(child0.instanceId, 0);
     QCOMPARE(child1.instanceId, 1);
+}
+
+void Test_Object::cleanupTestCase() {
+    Mira::Core::uninstallLogHandler();
 }

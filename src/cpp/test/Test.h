@@ -11,6 +11,7 @@ public:
     /// Should be private slots
 private slots:
     void initTestCase();
-    void testCase1();
+    void test_multipleObjects();
+    void test_multiThread();
     void cleanupTestCase();
 };

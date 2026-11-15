@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QDebug>
-#include <QPointer>
 #include <QString>
 #include <QtCore/qlogging.h>
 #include <functional>
@@ -247,37 +246,6 @@ namespace Mira {
                 return object;
             }
 
-            /**
-             * @brief The Mira object that is in scope on this thread.
-             *
-             * A single weak slot: the innermost object is the one the
-             * `miraInfo()` family attributes its messages to. The slot holds a
-             * `QPointer`, so an object that dies elsewhere (even on another
-             * thread) reads back as `nullptr` instead of dangling - no stack of
-             * entries has to be kept or scanned, which keeps logging down to one
-             * pointer load per statement.
-             *
-             * @note As for every `QObject`, an object is expected to be destroyed
-             * on the thread that created it.
-             *
-             * @return A reference to the current thread's object-scope slot.
-             */
-            inline QPointer<QObject>& objectScope() noexcept
-            {
-                thread_local QPointer<QObject> scope;
-                return scope;
-            }
-
-            /**
-             * @brief The object a `miraInfo()`-family statement is attributed to.
-             *
-             * @return The Mira object in scope, or `nullptr`.
-             */
-            inline const QObject* resolveLogObject() noexcept
-            {
-                return objectScope().data();
-            }
-
         } // namespace Details
 
         /**
@@ -320,61 +288,6 @@ namespace Mira {
             const QObject* previous;    ///< Value restored on destruction.
         };
 
-        /**
-         * @class ObjectScope
-         * @brief Makes @p object the Mira object in scope (RAII).
-         *
-         * While an object is in scope, every `miraInfo()`-family statement is
-         * attributed to it, no matter where the statement is written: inside a
-         * member function, in a free function, in a lambda, in a static member
-         * function, ...
-         *
-         * A `Mira::Core::Object` opens such a scope for its own lifetime, so
-         * logging from inside one of its member functions needs no help. This class
-         * is for the cases where the object in scope should be a specific one
-         * rather than the innermost living object:
-         *
-         * @code
-         * {
-         *     Mira::Core::ObjectScope scope(myObject);
-         *     mInfo() << "attributed to myObject";
-         * }
-         * @endcode
-         */
-        class ObjectScope
-        {
-        public:
-            /**
-             * @brief Puts @p object in scope until this scope is destroyed.
-             * @param object The object to attribute messages to, or `nullptr`.
-             */
-            explicit ObjectScope(const QObject* object) noexcept :
-                object(object),
-                previous(Details::objectScope())
-            {
-                // QPointer only tracks non-const pointers; the object itself is
-                // never modified through it.
-                Details::objectScope() = const_cast<QObject*>(object);
-            }
-
-            /** @brief Takes the object out of scope again. */
-            ~ObjectScope() noexcept
-            {
-                // The previous scope is only restored while this object is still
-                // the innermost one: scopes may be closed in a different order than
-                // they were opened, and a nested object must keep the scope
-                // meanwhile.
-                if (Details::objectScope().data() == object)
-                    Details::objectScope() = previous;
-            }
-
-        private:
-            Q_DISABLE_COPY(ObjectScope)
-
-            const QObject* object;            ///< Object taken out of scope on destruction.
-            QPointer<QObject> previous;       ///< Scope restored on destruction (weakly).
-        };
-
         namespace Details {
 
             /**
@@ -405,18 +318,23 @@ namespace Mira {
 } // namespace Mira
 
 /**
- * @brief The Mira object that is currently in scope.
+ * @brief The object a message is attributed to, outside a Mira object.
  *
- * A `Mira::Core::Object` is in scope for as long as it lives, so this is the
- * object that the `miraInfo()` family attributes its messages to. Outside any
- * Mira object scope it is `nullptr`, and the Mira pattern placeholders expand
- * to `unknown`.
+ * `Mira::Core::Object` declares a member of the same name that returns `this`,
+ * and unqualified name lookup finds that member first inside a member function
+ * of a Mira object. So the `miraInfo()` family attributes a statement to the
+ * object whose member function is running, and this fallback - what the same
+ * macros resolve to anywhere else - attributes nothing: the Mira pattern
+ * placeholders expand to `unknown`.
  *
- * @return The Mira object in scope, or `nullptr`.
+ * It returns `nullptr` rather than remembering some earlier object, so a
+ * message can never be attributed to an object that merely happens to be alive.
+ *
+ * @return Always `nullptr`; the member in `Mira::Core::Object` returns `this`.
  */
 inline const QObject* miraLogObject() noexcept
 {
-    return ::Mira::Core::Details::resolveLogObject();
+    return nullptr;
 }
 
 /**
@@ -430,7 +348,7 @@ inline const QObject* miraLogObject() noexcept
  */
 #define MIRA_LOG_STREAM(stream) (\
     ::Mira::Core::Details::logStream(\
-        ::Mira::Core::LogObjectScope(::Mira::Core::Details::resolveLogObject()), \
+        ::Mira::Core::LogObjectScope(miraLogObject()), \
         stream))
 
 /**
@@ -445,9 +363,10 @@ inline const QObject* miraLogObject() noexcept
  * miraInfo().nospace() << "Some" << "info" << "message";
  * @endcode
  *
- * The message is attributed to the Mira object that is in scope (see
- * @ref Mira::Core::ObjectScope). To attribute a statement to another object,
- * open an `ObjectScope` around it.
+ * The message is attributed to the object whose member function is running:
+ * `Mira::Core::Object` declares `miraLogObject()` returning `this`, which
+ * shadows the global @ref miraLogObject returning `nullptr`. Outside a Mira
+ * object the statement has no object context.
  */
 #define miraInfo() \
     MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info())

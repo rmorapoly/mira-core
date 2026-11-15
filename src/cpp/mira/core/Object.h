@@ -45,12 +45,11 @@ namespace Mira {
          *  - Public fields (`name`, `instanceId`, `instanceName`) consumed by the
          *    Mira log handler to annotate messages emitted through the `miraInfo()`
          *    family of macros.
-         *  - An object scope: while the object lives it is the object in scope, so
-         *    every `miraInfo()`-family message logged in that time is attributed to
-         *    it, wherever it is logged from. It is a `Mira::Core::ObjectScope`
-         *    member over one weak thread-local slot (see
-         *    `Mira::Core::Details::objectScope()`): RAII does the pushing and
-         *    restoring, so the constructor and destructor carry no scope code.
+         *  - Attribution to `this`: inside a member function of a Mira object,
+         *    unqualified lookup of `miraLogObject()` finds this class's member
+         *    first, so every `miraInfo()`-family statement is attributed to the
+         *    object whose member function is running - even while other objects of
+         *    the same type are alive.
          *
          * All objects that want Mira's logging, introspection, and registry features
          * should inherit from this class.
@@ -103,6 +102,19 @@ namespace Mira {
             bool hasInstanceName() const;
 
             /**
+             * @brief The object messages logged from this object are attributed to.
+             *
+             * The `miraInfo()` family expands to an unqualified call of
+             * `miraLogObject()`. Inside a member function of a Mira object, name
+             * lookup finds this member before the global fallback, so the statement
+             * is attributed to @p this - the object whose member function is
+             * running, no matter how many other objects are alive.
+             *
+             * @return This object.
+             */
+            const QObject* miraLogObject() const noexcept { return this; }
+
+            /**
              * @brief Equality operator, comparing name + instanceName + instanceId.
              */
             friend bool operator==(const Object& obj1, const Object& obj2);
@@ -111,14 +123,6 @@ namespace Mira {
              * @brief Inequality operator.
              */
             friend bool operator!=(const Object& obj1, const Object& obj2);
-
-        private:
-            /// Keeps this object in scope for its whole lifetime: the RAII member
-            /// pushes the object on construction and restores the previous scope
-            /// on destruction, so no constructor/destructor code is needed. The
-            /// previous scope is held weakly, so one restored onto an object that
-            /// died in the meantime reads back as `nullptr` instead of dangling.
-            ObjectScope scope{this};
         };
 
     } // namespace Core

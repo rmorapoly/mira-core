@@ -71,27 +71,25 @@ int main(int argc, char** argv) {
 }
 ```
 
-**Object attribution.** While a `Mira::Core::Object` lives, it is the object in
-scope, and every message logged in that time is attributed to it — no matter
-where the message is logged from. The object context is therefore available in
-free functions and lambdas as well, not only in member functions:
+**Object attribution.** A message is attributed to the object whose member
+function is running. `Mira::Core::Object` declares `miraLogObject()` returning
+`this`, which shadows the global `miraLogObject()` returning `nullptr` that the
+macros fall back to outside Mira objects. Attribution therefore needs no help
+inside a member function, and it stays correct while several objects of one
+type are alive:
 
 ```cpp
 MyObject obj;
+MyObject other;
 obj.work();          // attributed to obj
-[]() { mInfo() << "also attributed to obj"; }();   // attributed to obj
-MyObject::staticWork();                            // attributed to obj
+other.work();        // attributed to other
+mInfo() << "free";   // no object context
 ```
 
-An `ObjectScope` attributes a whole block to a chosen object — including an
-object other than the innermost one in scope:
-
-```cpp
-{
-    Mira::Core::ObjectScope scope(obj);
-    mInfo() << "attributed to obj";
-}
-```
+A lambda that captures `this` keeps the attribution. A captureless lambda and a
+static member function have no `this`, so `miraInfo()` does not resolve to the
+object member there — capture `this`, or use plain `qInfo()` when no object
+should be attributed.
 
 Each message is routed through Qt's logging pipeline. Mira fills the Mira
 placeholders (`%{object}`, `%{objectName}`, `%{objectInstanceId}`,

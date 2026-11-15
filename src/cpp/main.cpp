@@ -9,8 +9,6 @@ int main(int argc, char* argv[])
     app.setOrganizationName(ORGANIZATION_NAME);
     app.setOrganizationDomain(ORGANIZATION_DOMAIN);
 
-    Mira::Core::installLogHandler();
-
     QTEST_SET_MAIN_SOURCE_PATH
     int exitCode = 1;
     exitCode &= TestRegistry::instance().runAll(argc, argv);

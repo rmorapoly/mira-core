@@ -9,7 +9,7 @@ public:
     explicit Test_Object(QObject *parent = nullptr);
 
 private slots:
-    void initTestCase() {};
+    void initTestCase();
     void test();
-    void cleanupTestCase() {};
+    void cleanupTestCase();
 };

@@ -11,6 +11,8 @@ private slots:
     void uninstallKeepsPattern();
     void installKeepsUserPattern();
     void messageIndexIncrements();
+    void attributionUsesThis();
+    void attributionOutsideObject();
     void logSinkReceivesMessages();
     void patternAccessors();
     void cleanupTestCase();

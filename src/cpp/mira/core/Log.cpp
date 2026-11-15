@@ -412,6 +412,8 @@ namespace Mira {
             if (handlerInstalled)
                 return;
 
+            qInfo() << "installed";
+
             // The pattern is deliberately left alone: whatever setLogPattern last
             // set (defaultPattern until then) stays in effect, a pattern set
             // before installing is not overwritten. Neither install nor uninstall
