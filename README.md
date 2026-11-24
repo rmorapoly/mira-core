@@ -11,12 +11,12 @@ live under `Mira::Core`.
 ## Features
 
 - **Logging on top of Qt**: messages go through Qt's own `qDebug()/qInfo()/...`
-  pipeline, so `qInstallMessageHandler()` and Qt's message patterns keep
-  working. Mira fills the originating object's context into the pattern tokens
-  `%{objectName}`, `%{objectInstanceId}`, `%{objectInstanceName}` and
-  `%{object}`, and a per-message sequence number (row count) into
-  `%{messageIndex}`, before Qt renders the message (see
-  `Mira::Core::setLogPattern()`).
+  pipeline, so `qInstallMessageHandler()` works and Qt's own message pattern
+  (`qSetMessagePattern()` / `QT_MESSAGE_PATTERN`) keeps formatting the line.
+  Mira supplies its own part of the line: the originating object's context
+  (`%{objectName}`, `%{objectInstanceId}`, `%{objectInstanceName}`,
+  `%{object}`) and a per-message sequence number (`%{messageIndex}`), set with
+  `Mira::Core::setMessagePattern()`.
 - **Extra log sinks**: every message can additionally go to your own handler —
   console and sink at the same time (see `Mira::Core::setLogSink()`).
 - **Object registration**: automatically register and track objects using
@@ -65,7 +65,7 @@ public:
 
 int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
-    Mira::Core::installLogHandler();
+    Mira::Core::installMessageHandler();
     mInfo() << "No object context here"; // works in free functions too
     // ...
 }
@@ -91,36 +91,39 @@ static member function have no `this`, so `miraInfo()` does not resolve to the
 object member there — capture `this`, or use plain `qInfo()` when no object
 should be attributed.
 
-Each message is routed through Qt's logging pipeline. Mira fills the Mira
-placeholders (`%{object}`, `%{objectName}`, `%{objectInstanceId}`,
-`%{objectInstanceName}`) from the emitting object plus `%{messageIndex}`, its
-own per-message sequence number — a row count over every message Mira formats.
-Qt has no token of its own for this, so Mira consumes it before Qt renders the
-line; the token is optional, and a pattern without it keeps the cached,
-allocation-free path. The rest is rendered by `qFormatLogMessage()`, so
-`%{time}`, `%{type}`, `%{file}`, `%{line}`, `%{function}`, `%{category}`,
-`%{pid}`, `%{appname}` and `%{message}` keep Qt's own semantics.
+Each message is routed through Qt's logging pipeline, and the line is built
+from two independent patterns:
 
-You own the pattern: `Mira::Core::setLogPattern()` is the only function that
-changes it, and neither `Mira::Core::installLogHandler()` nor
-`Mira::Core::uninstallLogHandler()` ever touches it. Until you set one,
-`Mira::Core::logPattern()` reports `Mira::Core::defaultPattern()`; fetch Mira's
-and Qt's defaults with `Mira::Core::defaultPattern()` /
-`Mira::Core::qtDefaultPattern()` to use or restore them:
+- **Qt's pattern** — `qSetMessagePattern()` / `QT_MESSAGE_PATTERN` — renders
+  time, severity, category, file/line, and so on. This is not Mira's job: Mira
+  never calls `qSetMessagePattern()`, so it cannot overwrite what you set, and
+  no per-message work is spent on Qt's state.
+- **Mira's pattern** — `Mira::Core::setMessagePattern()` — supplies the Mira
+  placeholders (`%{object}`, `%{objectName}`, `%{objectInstanceId}`,
+  `%{objectInstanceName}`), the per-message row count `%{messageIndex}`, and
+  the message itself.
+
+Mira hands its expansion to Qt as the message text, so a line is
+`{Qt pattern}{Mira pattern} message`. A pattern that leaves `%{message}` out is
+a prefix and the message is appended after it; an empty pattern prints the
+message alone. Qt's tokens are not expanded inside Mira's pattern.
 
 ```cpp
-Mira::Core::setLogPattern("[%{time hh:mm:ss}]%{messageIndex} %{object} %{message}");
-// later, back to the default:
-Mira::Core::setLogPattern(Mira::Core::defaultPattern());
+qSetMessagePattern("[%{time hh:mm:ss}] [%{type}] %{message}");
+Mira::Core::setMessagePattern("[%{messageIndex}] %{object} %{message}");
+// -> [12:00:00] [info] [5] MyObj:0 hello
 ```
 
-Qt's process-wide pattern is not rewritten for every message: it is only
-updated when the emitting object changes (in practice, once per object) —
-except for patterns that use `%{messageIndex}`, whose index changes per message
-and is therefore re-rendered per message. It is always pushed in its
-placeholder-free form, and install/uninstall leave it exactly as it is, so
-`qInstallMessageHandler()` handlers of your own, QtTest, and Qt's default
-handler never warn about Mira placeholders.
+You own both patterns: `setMessagePattern()` is the only function that changes
+Mira's, and neither `installMessageHandler()` nor `uninstallMessageHandler()`
+ever touches it (or Qt's). Until you set one, `messagePattern()` reports
+`defaultMessagePattern()`; `qtDefaultMessagePattern()` is Qt's own default for
+`qSetMessagePattern()`:
+
+```cpp
+Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
+qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
+```
 
 Messages are written to the console *and* can be passed to your own extra
 handler — e.g. to mirror them into a file, a widget or a network stream:
@@ -147,7 +150,7 @@ more than the `unknown` fallback. This keeps patterns clean when a message has
 no object:
 
 ```cpp
-Mira::Core::setLogPattern("%{if-object}[%{object}] %{endif}%{message}");
+Mira::Core::setMessagePattern("%{if-object}[%{object}] %{endif}%{message}");
 // object context -> "[MyObj:0] hello"
 // no object      -> "hello"
 ```
@@ -156,8 +159,8 @@ Supported conditions are `%{if-object}`, `%{if-objectName}`,
 `%{if-objectInstanceId}` and `%{if-objectInstanceName}`, each closed by
 `%{endif}`. `if-objectName` and `if-objectInstanceName` are also false when the
 matching field is empty. Mira's conditions are evaluated by Mira and their
-markers are consumed; Qt's own conditions are left for Qt, so the two can be
-mixed in one pattern.
+markers are consumed. Qt's own conditions belong to Qt's pattern; a Qt token
+left in Mira's pattern is printed literally.
 
 The macros return a real `QDebug`, so the whole `QDebug` API is available and
 behaves exactly as it does for `qInfo()`/`qDebug()`/...:

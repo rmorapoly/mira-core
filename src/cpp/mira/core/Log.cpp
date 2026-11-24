@@ -15,73 +15,47 @@
 namespace Mira {
     namespace Core {
 
-        const QString& defaultPattern()
+        const QString& defaultMessagePattern()
         {
-            // The message sequence number is part of the default: every message
-            // Mira writes carries its row count unless a custom pattern leaves
-            // the token out again.
+            // Mira only contributes its own part of the line: the row count, the
+            // object context and the message. Time, severity and every other Qt
+            // token belong to Qt's process-wide pattern, which the application sets
+            // itself with qSetMessagePattern() / QT_MESSAGE_PATTERN.
             static const QString pattern = QStringLiteral(
-                        "[%{time yyyy-MM-dd hh:mm:ss.zzz}] "
-                        "[%{type}] "
                         "[%{messageIndex}] "
                         "%{if-object}[%{object}] %{endif}"
                         "%{message}");
             return pattern;
         }
 
-        const QString& qtDefaultPattern()
+        const QString& qtDefaultMessagePattern()
         {
             // Qt's built-in default message pattern, hard-coded in Qt's
-            // `qlogging.cpp` (Qt offers no getter for it). An *empty* pattern is not
-            // equivalent: it makes `qFormatLogMessage()` return an empty string, so
-            // nothing is printed at all.
+            // `qlogging.cpp` (Qt offers no getter for it). It is what Qt renders
+            // around Mira's part until the application replaces it, and Mira never
+            // touches it.
             static const QString pattern = QStringLiteral("%{if-category}%{category}: %{endif}%{message}");
             return pattern;
         }
 
         namespace {
 
-            /// The placeholder Mira fills with the message sequence number.
-            const QLatin1String messageIndexToken("messageIndex");
-
-            /// The pattern currently in effect, and whether it uses
-            /// `%{messageIndex}` (which decides if Qt's pattern has to be
-            /// re-rendered per message or only per emitting object).
-            struct PatternState
+            /// Mira's pattern: the part of the line Mira expands. A function-local
+            /// static, so no QString is constructed during static initialization;
+            /// built on first use (initially @ref defaultMessagePattern).
+            /// @ref patternMutex guards it.
+            QString& patternStorage()
             {
-                QString pattern;
-                bool usesMessageIndex = false;
-            };
-
-            /// Mira's pattern, with the `%{object*}` and `%{messageIndex}`
-            /// placeholders still unresolved. A function-local static: built on
-            /// first use (initially @ref defaultPattern), so no QString is
-            /// constructed during static initialization. @ref patternMutex guards
-            /// it.
-            PatternState& patternState()
-            {
-                static PatternState state = [] {
-                    PatternState s;
-                    s.pattern = defaultPattern();
-                    s.usesMessageIndex = s.pattern.contains(messageIndexToken);
-                    return s;
-                }();
-                return state;
+                static QString pattern = defaultMessagePattern();
+                return pattern;
             }
 
-            /// Serialises updates of Qt's process-wide pattern with the calls that read
-            /// it back through `qFormatLogMessage()`.
+            /// Serialises reading and replacing Mira's pattern.
             ///
-            /// Recursive because an invalid pattern makes Qt report an error, which
-            /// re-enters `formatLogMessage()` through the handler.
-            QRecursiveMutex patternMutex;
-
-            /// Object whose `%{object*}` values are currently resolved into Qt's
-            /// pattern; `nullptr` means the no-object (`unknown`) form is in place.
-            const QObject* qtPatternObject = nullptr;
-
-            /// Whether Qt's pattern really corresponds to @ref qtPatternObject.
-            bool qtPatternValid = false;
+            /// Deliberately not held while `qFormatLogMessage()` runs: an invalid
+            /// Qt pattern makes Qt report an error, which re-enters the handler, and
+            /// that must never wait on this mutex.
+            QMutex patternMutex;
 
             /// Message handler that was active before Mira installed its own.
             QtMessageHandler previousHandler = nullptr;
@@ -92,11 +66,12 @@ namespace Mira {
             /// Guards the handler install/uninstall state.
             QMutex handlerMutex;
 
-            /// Sequence number of the last message Mira formatted: the row count
-            /// behind `%{messageIndex}`. Advanced once per formatted message,
-            /// shared across threads (relaxed - ordering only matters between
-            /// the value and the pattern it is rendered into, which
-            /// @ref patternMutex already serialises).
+            /// Number of messages printed so far: the row count behind
+            /// `%{messageIndex}`. Advanced exactly once for every message Mira
+            /// formats - whether it goes through the handler or through a direct
+            /// @ref formatMessage call - so a number is never issued twice. Shared
+            /// across threads; a relaxed fetch_add is enough, because each message
+            /// only needs a unique value out of it.
             std::atomic<quint64> messageCounter{0};
 
             /// Guards @ref extraSink. Kept separate from the handler and pattern
@@ -176,9 +151,9 @@ namespace Mira {
                 return false;
             }
 
-            /// Resolves one Mira placeholder into @p value: the `%{object*}`
-            /// tokens and `%{messageIndex}`. Returns false for any other
-            /// placeholder, which is then left for Qt.
+            /// Resolves one Mira placeholder into @p value: the `%{object*}` tokens
+            /// and `%{messageIndex}`. Returns false for any other placeholder, which
+            /// is then left alone.
             bool resolveField(const QString& token,
                               const ObjectFields& fields,
                               const QString& messageIndex,
@@ -199,22 +174,25 @@ namespace Mira {
                 return true;
             }
 
-            /// Expands the Mira placeholders of @p pattern: the `%{object*}` and
-            /// `%{messageIndex}` tokens and the Mira `%{if-object*}...%{endif}`
-            /// conditional blocks. Every other placeholder (Qt's own, including
-            /// `%{if-category}...%{endif}`) is left untouched for
-            /// `qFormatLogMessage()` to expand.
+            /// Expands Mira's part of the line: the `%{object*}` tokens,
+            /// `%{messageIndex}`, `%{message}` and the Mira
+            /// `%{if-object*}...%{endif}` conditional blocks.
             ///
-            /// Mira's conditions are evaluated here, at pattern-selection time, because
-            /// Qt has no knowledge of them. Their markers are consumed; Qt's own
-            /// conditional markers are preserved, so both can be mixed in one pattern.
+            /// Every other placeholder is left as written: Qt's tokens are not
+            /// Mira's to expand (they belong to Qt's own pattern), and Qt would
+            /// print them literally here, so a Qt token in Mira's pattern is
+            /// visible in the output instead of silently doing nothing.
+            ///
+            /// Mira's conditions are evaluated here, at expansion time, because Qt
+            /// never sees them.
             QString expandTokens(const QString& pattern,
                                  const ObjectFields& fields,
-                                 const QString& messageIndex)
+                                 const QString& messageIndex,
+                                 const QString& message)
             {
-                // One entry per open `%{if-*}`: the truth value of Mira's condition (or
-                // `true` for Qt's, which are evaluated later by Qt), and whether the
-                // markers belong to Mira (and are therefore consumed here).
+                // One entry per open `%{if-*}`: whether the condition is true, and
+                // whether the markers are Mira's (consumed here) or a Qt token
+                // left in the pattern (printed literally).
                 struct ConditionFrame
                 {
                     bool enabled;
@@ -230,7 +208,11 @@ namespace Mira {
                 };
 
                 QString expanded;
-                expanded.reserve(pattern.size());
+                expanded.reserve(pattern.size() + message.size());
+
+                // Whether `%{message}` was part of the emitted text. A pattern that
+                // leaves it out is a prefix, and the message is appended below.
+                bool messageFilled = false;
 
                 const int size = pattern.size();
                 int i = 0;
@@ -246,7 +228,7 @@ namespace Mira {
 
                     const int close = pattern.indexOf(QLatin1Char('}'), i + 2);
                     if (close < 0) {
-                        // Unterminated placeholder: Qt keeps the rest as literal text.
+                        // Unterminated placeholder: keep the rest as literal text.
                         if (emitting())
                             expanded += pattern.mid(i);
                         break;
@@ -258,10 +240,10 @@ namespace Mira {
 
                     if (token.startsWith(QLatin1String("if-"))) {
                         const bool ours = isCondition(token);
-                        // Foreign conditions are not ours to evaluate; assume true and
-                        // preserve the markers so Qt evaluates them itself.
                         stack.append(ConditionFrame{ours ? evalCondition(token, fields) : true, ours});
 
+                        // Qt's own conditions are not Mira's: they are printed
+                        // literally, like any other Qt token in Mira's pattern.
                         if (!ours && emitting())
                             expanded += marker;
                     } else if (token == QLatin1String("endif")) {
@@ -272,8 +254,12 @@ namespace Mira {
                             if (!ours && emitting())
                                 expanded += marker;
                         } else if (emitting()) {
-                            // Stray `%{endif}`: leave it for Qt to report.
-                            expanded += marker;
+                            expanded += marker;    // stray `%{endif}`: keep it visible
+                        }
+                    } else if (token == QLatin1String("message")) {
+                        if (emitting()) {
+                            expanded += message;
+                            messageFilled = true;
                         }
                     } else {
                         QString value;
@@ -286,37 +272,26 @@ namespace Mira {
                     }
                 }
 
-                return expanded;
-            }
+                if (!messageFilled)
+                    expanded += message;
 
-            /// Resolves the Mira placeholders of @p pattern for @p obj into Qt's
-            /// process-wide pattern. @ref patternMutex must be held.
-            ///
-            /// Callers decide when this is needed: unchanged emitting objects reuse
-            /// the cached expansion, and only a pattern with `%{messageIndex}`
-            /// re-renders per message (the index cannot be cached).
-            void selectQtPattern(const QString& pattern, const QObject* obj, const QString& messageIndex)
-            {
-                qSetMessagePattern(expandTokens(pattern, resolveObjectFields(obj), messageIndex));
-                qtPatternObject = obj;
-                qtPatternValid = true;
+                return expanded;
             }
 
             void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
             {
-                // Re-entrancy guard: an invalid pattern makes Qt report an error, which
-                // would otherwise call us back.
+                // Re-entrancy guard: an invalid Qt pattern makes Qt report an error,
+                // which would otherwise call us back.
                 if (insideHandler) {
                     const QByteArray raw = msg.toLocal8Bit();
                     fprintf(stderr, "%s\n", raw.constData());
                     fflush(stderr);
-
                     return;
                 }
 
                 insideHandler = true;
 
-                const QString formatted = formatLogMessage(type, context, msg, Details::currentObject());
+                const QString formatted = formatMessage(type, context, msg, Details::currentObject());
                 const QByteArray out = formatted.toLocal8Bit();
                 fprintf(stderr, "%s\n", out.constData());
                 fflush(stderr);
@@ -342,28 +317,16 @@ namespace Mira {
 
         } // namespace
 
-        void setLogPattern(const QString& pattern)
+        void setMessagePattern(const QString& pattern)
         {
             QMutexLocker locker(&patternMutex);
-
-            PatternState& state = patternState();
-            state.pattern = pattern;
-            state.usesMessageIndex = pattern.contains(messageIndexToken);
-
-            // The stored pattern changed, so any cached expansion is stale. Push the
-            // placeholder-free form (with the index frozen at the last value Mira
-            // issued) so foreign handlers always have a valid pattern.
-            const QString index = state.usesMessageIndex
-                    ? QString::number(messageCounter.load(std::memory_order_relaxed))
-                    : QString();
-
-            selectQtPattern(pattern, nullptr, index);
+            patternStorage() = pattern;
         }
 
-        QString logPattern()
+        QString messagePattern()
         {
             QMutexLocker locker(&patternMutex);
-            return patternState().pattern;
+            return patternStorage();
         }
 
         const QObject* currentLogObject()
@@ -371,28 +334,25 @@ namespace Mira {
             return Details::currentObject();
         }
 
-        QString formatLogMessage(QtMsgType type,
-                                 const QMessageLogContext& context,
-                                 const QString& message,
-                                 const QObject* object)
+        QString formatMessage(QtMsgType type,
+                              const QMessageLogContext& context,
+                              const QString& message,
+                              const QObject* object)
         {
-            QMutexLocker locker(&patternMutex);
+            // One call is one printed message: it takes the next number.
+            const QString index = QString::number(++messageCounter);
 
-            const PatternState& state = patternState();
-
-            if (state.usesMessageIndex) {
-                // The index advances with every message, so nothing here can be
-                // cached: Qt's process-wide pattern is re-rendered for this one
-                // message. That is the price of the token.
-                selectQtPattern(state.pattern, object, QString::number(++messageCounter));
-            } else if (!qtPatternValid || object != qtPatternObject) {
-                // Mira fills the object placeholders, then Qt fills the rest. Qt's
-                // pattern is rewritten only when the emitting object changes, so a
-                // run of messages never touches Qt's state.
-                selectQtPattern(state.pattern, object, QString());
+            QString miraPart;
+            {
+                QMutexLocker locker(&patternMutex);
+                miraPart = expandTokens(patternStorage(), resolveObjectFields(object), index, message);
             }
 
-            return qFormatLogMessage(type, context, message);
+            // Mira's expansion becomes the message text for Qt, so Qt's own
+            // process-wide pattern renders the line around it: {Qt pattern}, with
+            // its %{message} replaced by {Mira pattern} + message. Qt's pattern is
+            // read, never written - it belongs to the application.
+            return qFormatLogMessage(type, context, miraPart);
         }
 
         void setLogSink(LogSink sink)
@@ -406,7 +366,7 @@ namespace Mira {
             sinkEnabled.store(static_cast<bool>(extraSink), std::memory_order_relaxed);
         }
 
-        void installLogHandler()
+        void installMessageHandler()
         {
             QMutexLocker locker(&handlerMutex);
             if (handlerInstalled)
@@ -414,21 +374,20 @@ namespace Mira {
 
             qInfo() << "installed";
 
-            // The pattern is deliberately left alone: whatever setLogPattern last
-            // set (defaultPattern until then) stays in effect, a pattern set
-            // before installing is not overwritten. Neither install nor uninstall
-            // ever changes the pattern - the application owns it.
+            // Neither Mira's pattern nor Qt's process-wide pattern is touched:
+            // both belong to the application, and neither install nor uninstall
+            // ever changes them.
             previousHandler = qInstallMessageHandler(messageHandler);
             handlerInstalled = true;
         }
 
-        void reinstallLogHandler()
+        void reinstallMessageHandler()
         {
-            uninstallLogHandler();
-            installLogHandler();
+            uninstallMessageHandler();
+            installMessageHandler();
         }
 
-        void uninstallLogHandler()
+        void uninstallMessageHandler()
         {
             QMutexLocker locker(&handlerMutex);
             if (!handlerInstalled)
@@ -439,11 +398,8 @@ namespace Mira {
             previousHandler = nullptr;
             handlerInstalled = false;
 
-            // The pattern is deliberately left alone, just like on install: the
-            // application owns it. Qt's process-wide pattern keeps the last
-            // placeholder-free form Mira rendered, so whatever handler runs next
-            // formats a valid pattern. Use setLogPattern(qtDefaultPattern()) to
-            // hand Qt's own formatting back explicitly.
+            // Both patterns are deliberately left alone, just like on install: the
+            // application owns them, so a later install picks up where it left off.
         }
     } // namespace Core
 } // namespace Mira

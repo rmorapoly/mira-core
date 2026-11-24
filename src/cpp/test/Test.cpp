@@ -13,7 +13,8 @@ Test::Test(QObject *parent)
 
 void Test::initTestCase()
 {
-    Mira::Core::reinstallLogHandler();
+    Mira::Core::reinstallMessageHandler();
+    qSetMessagePattern("[%{time yyyy-MM-dd hh:mm:ss.zzz}] %{message}");
 }
 
 void Test::test_multipleObjects()
@@ -28,14 +29,13 @@ void Test::test_multipleObjects()
     MiraObject o1;
     MiraObject o2;
     MiraObject o3;
-    Mira::Core::setLogSink([](QtMsgType type,
-                           const QMessageLogContext& context,
-                           const QString& message){
-        QVERIFY(message.contains("MiraObject:0"));
+    Mira::Core::setLogSink([](QtMsgType, const QMessageLogContext&,
+                              const QString& message){
         Mira::Core::LogSink empty;
         Mira::Core::setLogSink(empty);
+        QVERIFY(message.contains("MiraObject:1"));
     });
-    o1.func();
+    o2.func();
 }
 
 void Test::test_multiThread()
@@ -61,9 +61,8 @@ void Test::test_multiThread()
     MiraObject o2(1);
     MiraObject o3(2);
     MiraObject o4(3);
-    Mira::Core::setLogSink([](QtMsgType type,
-                           const QMessageLogContext& context,
-                           const QString& message){
+    Mira::Core::setLogSink([](QtMsgType, const QMessageLogContext&,
+                              const QString& message){
         static int counter = 0;
         auto expected = QString(message.at(message.size() - 1)).toInt();
         auto actual = QString(message.split(':').last()[0]).toInt();
@@ -90,5 +89,5 @@ void Test::test_multiThread()
 
 void Test::cleanupTestCase()
 {
-    Mira::Core::uninstallLogHandler();
+    Mira::Core::uninstallMessageHandler();
 }

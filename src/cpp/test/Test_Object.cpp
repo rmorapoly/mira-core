@@ -12,7 +12,7 @@ Test_Object::Test_Object(QObject *parent)
 
 void Test_Object::initTestCase()
 {
-    Mira::Core::reinstallLogHandler();
+    Mira::Core::reinstallMessageHandler();
 }
 
 void Test_Object::test()
@@ -42,5 +42,5 @@ void Test_Object::test()
 }
 
 void Test_Object::cleanupTestCase() {
-    Mira::Core::uninstallLogHandler();
+    Mira::Core::uninstallMessageHandler();
 }

@@ -15,56 +15,67 @@ namespace Mira {
         /**
          * @brief Returns Mira's default message pattern.
          *
-         * Renders time, severity, the message sequence number
-         * (`%{messageIndex}`), the emitting object's context
-         * (`%{if-object}[%{object}] %{endif}`) and the message itself.
+         * Mira's pattern is only the Mira part of the line: the message sequence
+         * number (`%{messageIndex}`), the object context
+         * (`%{if-object}[%{object}] %{endif}`) and the message itself. Everything
+         * Qt-specific - `%{time}`, `%{type}`, `%{file}`, `%{category}`, ... - is
+         * rendered by Qt from the pattern the application installed with
+         * `qSetMessagePattern()` / `QT_MESSAGE_PATTERN`.
          *
-         * Intended for use with @ref setLogPattern, e.g. to return to the
+         * Intended for use with @ref setMessagePattern, e.g. to return to the
          * default after a custom pattern:
          * @code
-         * Mira::Core::setLogPattern(Mira::Core::defaultPattern());
+         * Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
          * @endcode
          *
          * @return The default pattern (never empty).
          */
-        MIRA_CORE_EXPORT const QString& defaultPattern();
+        MIRA_CORE_EXPORT const QString& defaultMessagePattern();
 
         /**
          * @brief Returns Qt's built-in default message pattern.
          *
-         * Hard-coded in Qt's `qlogging.cpp` (Qt offers no getter for it). An
-         * *empty* pattern is not equivalent: it makes `qFormatLogMessage()`
-         * return an empty string, so nothing is printed at all.
-         *
-         * Mira never applies it on its own - install and uninstall leave the
-         * pattern alone - so hand Qt's own formatting back explicitly when wanted:
+         * Hard-coded in Qt's `qlogging.cpp` (Qt offers no getter for it). It is
+         * what Qt renders around Mira's part until the application replaces it,
+         * and it is *not* Mira's pattern: pass it to `qSetMessagePattern()` to
+         * restore Qt's own default after changing it:
          * @code
-         * Mira::Core::setLogPattern(Mira::Core::qtDefaultPattern());
+         * qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
          * @endcode
          *
          * @return Qt's default pattern (`%{if-category}%{category}: %{endif}%{message}`).
          */
-        MIRA_CORE_EXPORT const QString& qtDefaultPattern();
+        MIRA_CORE_EXPORT const QString& qtDefaultMessagePattern();
 
         /**
-         * @brief Sets the message pattern used by the Mira log handler.
+         * @brief Sets Mira's message pattern.
          *
-         * Every placeholder is resolved by Qt through `qFormatLogMessage()`
-         * (`%{time}`, `%{type}`, `%{file}`, `%{line}`, `%{function}`, `%{category}`,
-         * `%{pid}`, `%{appname}`, `%{message}`, ...), so their semantics are exactly
-         * Qt's. On top of those, Mira fills in the following placeholders from the
-         * `Mira::Core::Object` that emitted the message:
+         * A line has two independent parts:
+         * @code
+         * {Qt pattern}{Mira pattern} message
+         * @endcode
+         *
+         * `{Qt pattern}` is Qt's process-wide pattern, which Mira never touches:
+         * set it with `qSetMessagePattern()` (or `QT_MESSAGE_PATTERN`) when you
+         * want time, severity, category, file/line and so on. `{Mira pattern}` is
+         * the pattern this function sets, and it is the only part Mira expands.
+         *
+         * Mira formats by handing its expansion to Qt as the message text
+         * (`qFormatLogMessage(type, context, miraExpansion)`), so Qt's
+         * `%{message}` renders `{Mira pattern}` followed by the message. Qt's
+         * pattern is read, never written: Mira does not call
+         * `qSetMessagePattern()` at all, so installing it cannot overwrite what
+         * the application set, and no per-message work is spent on Qt's state.
+         *
+         * Mira fills these placeholders:
          *  - `%{objectName}`         the object's `name`
          *  - `%{objectInstanceId}`   the object's `instanceId`
          *  - `%{objectInstanceName}` the object's `instanceName`
          *  - `%{object}`             the composed `name:instanceId`, plus
-         *                            `#instanceName` when the object has one.
-         *
-         * In addition, Mira maintains a message sequence number, a row count
-         * over every message it formats, and exposes it as:
-         *  - `%{messageIndex}`       1-based index of the message (optional;
-         *                            Qt has no token of its own here, so Mira
-         *                            consumes it before Qt renders the pattern).
+         *                            `#instanceName` when the object has one
+         *  - `%{message}`            the message text
+         *  - `%{messageIndex}`       1-based index of the message, strictly
+         *                            increasing and never repeated
          *
          * When no `Mira::Core::Object` is emitting (plain `qDebug()`, or a
          * `QObject` that is not a Mira `Object`), the object placeholders expand to
@@ -80,42 +91,36 @@ namespace Mira {
          *
          * For example `%{if-object}[%{object}] %{endif}%{message}` omits the object
          * part entirely for messages that have no object context. Mira's conditions
-         * and Qt's own conditions may be mixed in one pattern.
+         * cannot enclose Qt's own conditions: Qt's tokens belong to Qt's pattern.
          *
-         * This is the only function that changes the pattern: it is remembered as
-         * given, and @ref installLogHandler / @ref uninstallLogHandler never touch
-         * it, so a pattern set before installing stays in effect - and stays in
-         * effect after uninstalling. The application owns the pattern; use
-         * @ref defaultPattern or @ref qtDefaultPattern to restore a known one.
+         * A pattern that leaves `%{message}` out is a prefix, and the message is
+         * appended after it - so `"[%{messageIndex}] "` prints the index followed
+         * by the text, and an empty pattern prints the message alone.
          *
-         * Because `qFormatLogMessage()` always reads Qt's process-wide pattern, Mira
-         * keeps that pattern in sync with the emitting object. It is written once per
-         * call here, and per message only when the emitting object changes - never for
-         * every message, and never for messages that have no object. The only
-         * exception is a pattern that uses `%{messageIndex}`: the index changes per
-         * message, so such a pattern is re-rendered for every message (that is the
-         * price of the token; patterns without it keep the cached, allocation-free
-         * path). @ref installLogHandler and @ref uninstallLogHandler never change
-         * the pattern at all: Qt's process-wide pattern keeps the last
-         * placeholder-free form Mira rendered, so foreign handlers (QtTest, a
-         * user-installed handler, Qt's default handler) always format a pattern
-         * that contains no Mira placeholders.
+         * Qt's placeholders (`%{time}`, `%{type}`, `%{message}`, ...) are *not*
+         * expanded here. A Qt token left in Mira's pattern is printed literally;
+         * put it in Qt's pattern instead.
          *
-         * @param pattern The message pattern.
+         * This is the only function that changes Mira's pattern: it is remembered
+         * as given, and @ref installMessageHandler / @ref uninstallMessageHandler
+         * never touch it, so a pattern set before installing stays in effect - and
+         * stays in effect after uninstalling.
+         *
+         * @param pattern The pattern.
          */
-        MIRA_CORE_EXPORT void setLogPattern(const QString& pattern);
+        MIRA_CORE_EXPORT void setMessagePattern(const QString& pattern);
 
         /**
-         * @brief Returns the message pattern currently used by the Mira log handler.
+         * @brief Returns Mira's message pattern.
          *
-         * Complete in every situation: @ref defaultPattern until the application
-         * sets its own pattern with @ref setLogPattern, the given pattern after
-         * that - the same value before, during and after install/uninstall,
-         * which never change it.
+         * Complete in every situation: @ref defaultMessagePattern until the
+         * application sets its own pattern with @ref setMessagePattern, the given
+         * pattern after that - the same value before, during and after
+         * install/uninstall, which never change it.
          *
-         * @return The active pattern.
+         * @return Mira's pattern.
          */
-        MIRA_CORE_EXPORT QString logPattern();
+        MIRA_CORE_EXPORT QString messagePattern();
 
         /**
          * @brief The extra sink registered with @ref setLogSink.
@@ -149,7 +154,7 @@ namespace Mira {
          * control functions. Pass `nullptr` to remove the sink.
          *
          * The sink is only consulted while Mira's handler is installed
-         * (@ref installLogHandler) and is kept across install/uninstall cycles.
+         * (@ref installMessageHandler) and is kept across install/uninstall cycles.
          *
          * @param sink The sink to call, or an empty `LogSink` to remove one.
          */
@@ -158,46 +163,31 @@ namespace Mira {
         /**
          * @brief Installs the Mira message handler.
          *
-         * The pattern is never touched: whatever @ref setLogPattern last set -
-         * @ref defaultPattern until the application customizes it - stays in
-         * effect, the application staying responsible for it. Repeated calls do
-         * nothing while the handler is installed.
-         *
-         * The pattern is applied in two ways depending on the emitter:
-         *  - From a `Mira::Core::Object`, the pattern is applied in full, so the
-         *    `%{object}` (and `%{objectName}`, `%{objectInstanceId}`,
-         *    `%{objectInstanceName}`) tokens are filled in with that object's
-         *    context.
-         *  - From any other `QObject` (or no object at all), the Mira object tokens
-         *    expand to `unknown`.
-         *
-         * All standard Qt placeholders (`%{time}`, `%{type}`, `%{file}`, ...) apply
-         * in both cases.
-         *
-         * Neither this function nor @ref uninstallLogHandler ever changes the
-         * message pattern; @ref setLogPattern is the only way to do that.
+         * The handler writes every message as `qFormatLogMessage()` renders Qt's
+         * pattern around Mira's expansion (see @ref setMessagePattern). It changes
+         * neither Qt's process-wide pattern nor Mira's pattern: both belong to the
+         * application, and repeated calls do nothing while the handler is
+         * installed.
          */
-        MIRA_CORE_EXPORT void installLogHandler();
+        MIRA_CORE_EXPORT void installMessageHandler();
 
         /**
-         * @brief call uninstallLogHandler then installLogHandler
+         * @brief Calls @ref uninstallMessageHandler then @ref installMessageHandler.
          */
-        MIRA_CORE_EXPORT void reinstallLogHandler();
+        MIRA_CORE_EXPORT void reinstallMessageHandler();
 
         /**
-         * @brief Uninstalls the message handler installed by @ref installLogHandler.
+         * @brief Uninstalls the message handler installed by @ref installMessageHandler.
          *
-         * Restores the message handler that was active before @ref installLogHandler
-         * was called (Qt's default handler, or `nullptr` if none was installed), so
-         * Qt behaves as if Mira had never been installed. Safe to call when the Mira
-         * handler is not installed.
+         * Restores the message handler that was active before
+         * @ref installMessageHandler was called (Qt's default handler, or `nullptr`
+         * if none was installed), so Qt behaves as if Mira had never been
+         * installed. Safe to call when the Mira handler is not installed.
          *
-         * The message pattern is deliberately left untouched - the application owns
-         * it. Set @ref qtDefaultPattern with @ref setLogPattern to hand Qt's own
-         * formatting back explicitly. The pattern set with @ref setLogPattern stays
-         * in effect for the next message after a later install.
+         * Both patterns are deliberately left untouched - the application owns
+         * them - so a later install picks up where it left off.
          */
-        MIRA_CORE_EXPORT void uninstallLogHandler();
+        MIRA_CORE_EXPORT void uninstallMessageHandler();
 
         /**
          * @brief Returns the `QObject` currently emitting a log message.
@@ -210,13 +200,12 @@ namespace Mira {
         MIRA_CORE_EXPORT const QObject* currentLogObject();
 
         /**
-         * @brief Formats @p message using the active pattern.
+         * @brief Formats @p message the way Mira's handler would print it.
          *
-         * The Mira placeholders are expanded from @p object, then Qt's
-         * `qFormatLogMessage()` expands every remaining placeholder, so Qt tokens
-         * keep Qt's own semantics. Qt's process-wide pattern is updated only when
-         * the emitting object changes (see @ref setLogPattern). When the pattern
-         * uses `%{messageIndex}`, this call also advances the sequence number.
+         * Mira's pattern is expanded from @p object (see @ref setMessagePattern)
+         * and the result is handed to Qt as the message text, so Qt's process-wide
+         * pattern renders the line around it. One call is one printed message and
+         * takes the next `%{messageIndex}`.
          *
          * @param type    The Qt message type.
          * @param context The Qt message log context (file/line/function/category).
@@ -224,10 +213,10 @@ namespace Mira {
          * @param object  The emitting `QObject`, or `nullptr`.
          * @return The fully formatted log line (without trailing newline).
          */
-        MIRA_CORE_EXPORT QString formatLogMessage(QtMsgType type,
-                                                  const QMessageLogContext& context,
-                                                  const QString& message,
-                                                  const QObject* object);
+        MIRA_CORE_EXPORT QString formatMessage(QtMsgType type,
+                                               const QMessageLogContext& context,
+                                               const QString& message,
+                                               const QObject* object);
 
         namespace Details {
 
@@ -345,6 +334,11 @@ inline const QObject* miraLogObject() noexcept
  * @ref Mira::Core::LogObjectScope for the current full expression and hands
  * @p stream to @ref Mira::Core::Details::logStream, which returns the `QDebug`
  * to stream into.
+ *
+ * `miraLogObject()` is deliberately unqualified: inside a member function of a
+ * Mira object it resolves to `Mira::Core::Object::miraLogObject()`, so the
+ * statement is attributed to that object, and anywhere else to the global
+ * fallback.
  */
 #define MIRA_LOG_STREAM(stream) (\
     ::Mira::Core::Details::logStream(\
@@ -355,8 +349,8 @@ inline const QObject* miraLogObject() noexcept
  * @def miraInfo()
  * @brief Logs an info message; behaves exactly like `qInfo()`.
  *
- * Usable anywhere: in a member function, in a free function, in a lambda, in a
- * static member function, ... The result is a `QDebug`, so the whole `QDebug`
+ * Usable anywhere: in a member function, in a free function, in a capturing
+ * lambda, ... The result is a `QDebug`, so the whole `QDebug`
  * API (`miraInfo().noquote() << ...`, `miraInfo().nospace() << ...`) is
  * available with `qInfo()`'s semantics.
  * @code
@@ -367,6 +361,10 @@ inline const QObject* miraLogObject() noexcept
  * `Mira::Core::Object` declares `miraLogObject()` returning `this`, which
  * shadows the global @ref miraLogObject returning `nullptr`. Outside a Mira
  * object the statement has no object context.
+ *
+ * A captureless lambda and a static member function have no `this`, so
+ * `miraInfo()` does not resolve to the object member there: capture `this`, or
+ * use plain `qInfo()` when no object should be attributed.
  */
 #define miraInfo() \
     MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info())
@@ -375,7 +373,7 @@ inline const QObject* miraLogObject() noexcept
 #define miraDebug() \
     MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).debug())
 
-/** @def miraWarning() @brief Logs a warning; behaves exactly like `qWarning()`. */
+/** @def miraWarning() @brief Logs a warning message; behaves exactly like `qWarning()`. */
 #define miraWarning() \
     MIRA_LOG_STREAM(QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning())
 

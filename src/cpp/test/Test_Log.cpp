@@ -60,64 +60,75 @@ struct MessageCapture
 
 void Test_Log::initTestCase()
 {
-    // Nothing has set a pattern yet: logPattern() reports the default. Only
-    // setLogPattern() ever changes it - install and uninstall never do.
-    QCOMPARE(Mira::Core::logPattern(), Mira::Core::defaultPattern());
+    // Nothing has set a pattern yet: messagePattern() reports the default. Only
+    // setMessagePattern() ever changes it - install and uninstall never do.
+    QCOMPARE(Mira::Core::messagePattern(), Mira::Core::defaultMessagePattern());
 }
 
 void Test_Log::uninstallKeepsPattern()
 {
-    // setLogPattern() leaves Mira's placeholder-free expansion of the pattern in
-    // Qt's process-wide pattern; installLogHandler() does not touch the pattern,
-    // so foreign handlers keep rendering it.
-    Mira::Core::setLogPattern(QStringLiteral("[%{type}] %{message}"));
-    Mira::Core::installLogHandler();
+    // Qt's process-wide pattern is the application's: Mira never writes it, so
+    // installing or uninstalling the handler cannot change what Qt renders.
+    qSetMessagePattern(QStringLiteral("[%{type}] %{message}"));
     QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
              QStringLiteral("[info] m"));
 
-    // uninstallLogHandler() leaves the pattern exactly as it was: neither the
-    // pattern Mira reports nor the one Qt renders is reset behind the
-    // application's back.
-    Mira::Core::uninstallLogHandler();
-    QCOMPARE(Mira::Core::logPattern(), QStringLiteral("[%{type}] %{message}"));
+    Mira::Core::installMessageHandler();
+    Mira::Core::uninstallMessageHandler();
     QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
              QStringLiteral("[info] m"));
 
-    // Handing Qt's own formatting back is the application's explicit choice.
-    Mira::Core::setLogPattern(Mira::Core::qtDefaultPattern());
-    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")), QStringLiteral("m"));
+    // Mira's own pattern is untouched by install/uninstall as well.
+    Mira::Core::setMessagePattern(QStringLiteral("<%{message}>"));
+    Mira::Core::installMessageHandler();
+    Mira::Core::uninstallMessageHandler();
+    QCOMPARE(Mira::Core::messagePattern(), QStringLiteral("<%{message}>"));
 
-    // Qt's default prefixes the logging category when there is one.
+    // The two patterns compose: Qt renders its pattern, and its %{message} is
+    // Mira's expansion.
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m"), nullptr),
+             QStringLiteral("[info] <m>"));
+
+    // Qt's own formatting stays available through its own token.
+    Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
+    qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
     const QMessageLogContext ctx("f.cpp", 1, "fn", "cat");
     QCOMPARE(qFormatLogMessage(QtInfoMsg, ctx, QStringLiteral("m")), QStringLiteral("cat: m"));
 }
 
 void Test_Log::installKeepsUserPattern()
 {
+    // Qt's pattern is only the wrapper; keep the expected lines deterministic.
+    qSetMessagePattern(QStringLiteral("%{message}"));
+
     // A pattern set by the user survives install/reinstall: the install must not
     // fall back to the default pattern.
-    Mira::Core::setLogPattern(QStringLiteral("user-pattern %{message}"));
-    Mira::Core::installLogHandler();
-    Mira::Core::installLogHandler();
-    QCOMPARE(Mira::Core::logPattern(), QStringLiteral("user-pattern %{message}"));
-    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
+    Mira::Core::setMessagePattern(QStringLiteral("user-pattern %{message}"));
+    Mira::Core::installMessageHandler();
+    Mira::Core::installMessageHandler();
+    QCOMPARE(Mira::Core::messagePattern(), QStringLiteral("user-pattern %{message}"));
+
+    Mira::Core::reinstallMessageHandler();
+    QCOMPARE(Mira::Core::messagePattern(), QStringLiteral("user-pattern %{message}"));
+
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m"), nullptr),
              QStringLiteral("user-pattern m"));
 
-    Mira::Core::reinstallLogHandler();
-    QCOMPARE(Mira::Core::logPattern(), QStringLiteral("user-pattern %{message}"));
-
-    Mira::Core::uninstallLogHandler();
+    Mira::Core::uninstallMessageHandler();
 }
 
 void Test_Log::messageIndexIncrements()
 {
-    // %{messageIndex} is Mira's row count: it advances by one per formatted
-    // message. Qt has no token of its own here, so Mira consumes it.
-    Mira::Core::setLogPattern(QStringLiteral("%{messageIndex}|%{message}"));
+    // Qt's pattern only wraps Mira's part, so it is set to the message alone.
+    qSetMessagePattern(QStringLiteral("%{message}"));
 
-    const QString first = Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(),
+    // %{messageIndex} is Mira's row count: it advances by one per formatted
+    // message. Qt has no token of its own here, so Mira fills it in.
+    Mira::Core::setMessagePattern(QStringLiteral("%{messageIndex}|%{message}"));
+
+    const QString first = Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(),
                                                        QStringLiteral("one"), nullptr);
-    const QString second = Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(),
+    const QString second = Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(),
                                                         QStringLiteral("two"), nullptr);
 
     QVERIFY(first.endsWith(QStringLiteral("|one")));
@@ -131,9 +142,9 @@ void Test_Log::messageIndexIncrements()
              first.mid(0, firstBar).toULongLong() + 1);
 
     // Without the token the index takes no part in the output.
-    Mira::Core::setLogPattern(QStringLiteral("%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(),
-                                          QStringLiteral("plain"), nullptr),
+    Mira::Core::setMessagePattern(QStringLiteral("%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(),
+                                       QStringLiteral("plain"), nullptr),
              QStringLiteral("plain"));
 }
 
@@ -185,8 +196,9 @@ void Test_Log::logSinkReceivesMessages()
 {
     // The sink is an additional consumer: the message still goes to the console
     // and the same formatted line is handed to the sink.
-    Mira::Core::setLogPattern(QStringLiteral("%{message}"));
-    Mira::Core::installLogHandler();
+    qSetMessagePattern(QStringLiteral("%{message}"));
+    Mira::Core::setMessagePattern(QStringLiteral("%{message}"));
+    Mira::Core::installMessageHandler();
 
     QStringList sunk;
     Mira::Core::setLogSink([&sunk](QtMsgType, const QMessageLogContext&, const QString& message) {
@@ -198,34 +210,39 @@ void Test_Log::logSinkReceivesMessages()
     // Removed before any assertion, so an early return cannot leave a sink
     // pointing at the dead local.
     Mira::Core::setLogSink(nullptr);
-    Mira::Core::uninstallLogHandler();
+    Mira::Core::uninstallMessageHandler();
 
     QVERIFY(sunk.contains(QStringLiteral("sink-me")));
 
     // Without a sink nothing is collected anymore.
-    Mira::Core::installLogHandler();
+    Mira::Core::installMessageHandler();
     miraInfo() << "after-sink";
-    Mira::Core::uninstallLogHandler();
+    Mira::Core::uninstallMessageHandler();
     QVERIFY(!sunk.contains(QStringLiteral("after-sink")));
 }
 
 void Test_Log::patternAccessors()
 {
     // Both defaults are public, so they can be inspected, extended or restored.
-    QVERIFY(Mira::Core::defaultPattern().contains(QStringLiteral("%{message}")));
-    QVERIFY(Mira::Core::defaultPattern().contains(QStringLiteral("%{messageIndex}")));
-    QCOMPARE(Mira::Core::qtDefaultPattern(),
+    QVERIFY(Mira::Core::defaultMessagePattern().contains(QStringLiteral("%{message}")));
+    QVERIFY(Mira::Core::defaultMessagePattern().contains(QStringLiteral("%{messageIndex}")));
+    QCOMPARE(Mira::Core::qtDefaultMessagePattern(),
              QStringLiteral("%{if-category}%{category}: %{endif}%{message}"));
 
-    Mira::Core::setLogPattern(Mira::Core::defaultPattern());
-    QCOMPARE(Mira::Core::logPattern(), Mira::Core::defaultPattern());
+    // Mira's default holds Mira's part only: Qt's tokens are Qt's to render.
+    QVERIFY(!Mira::Core::defaultMessagePattern().contains(QStringLiteral("%{time")));
+    QVERIFY(!Mira::Core::defaultMessagePattern().contains(QStringLiteral("%{type}")));
+
+    Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
+    QCOMPARE(Mira::Core::messagePattern(), Mira::Core::defaultMessagePattern());
 }
 
 void Test_Log::cleanupTestCase()
 {
-    // Restore the default pattern and handler so later tests and the app keep them.
-    Mira::Core::setLogPattern(Mira::Core::defaultPattern());
-    Mira::Core::installLogHandler();
+    // Restore both defaults and the handler so later tests and the app keep them.
+    Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
+    qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
+    Mira::Core::installMessageHandler();
 }
 
 void Test_Log::test()
@@ -300,89 +317,78 @@ void Test_Log::test()
     QCOMPARE(capture.objects.at(capture.messages.indexOf(QStringLiteral("nospace"))),
              static_cast<const QObject*>(&tracked));
 
-    // The pattern expands the Mira placeholders from the emitting object.
+    // Mira's pattern covers Mira's part of the line only. Qt's pattern is set
+    // here so the expected strings are deterministic; Mira never writes it.
+    qSetMessagePattern(QStringLiteral("%{message}"));
     Mira::Core::Object tagged(QStringLiteral("MyObj"), QStringLiteral("MyIns"));
 
-    Mira::Core::setLogPattern(QStringLiteral("%{objectName}|%{objectInstanceId}|%{objectInstanceName}|%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
+    Mira::Core::setMessagePattern(QStringLiteral("%{objectName}|%{objectInstanceId}|%{objectInstanceName}|%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
              QStringLiteral("MyObj|0|MyIns|hello"));
 
-    Mira::Core::setLogPattern(QStringLiteral("[%{type}]%{object} %{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
-             QStringLiteral("[info]MyObj:0#MyIns hello"));
-
     // No Mira object -> the Mira placeholders expand to `unknown`.
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
-             QStringLiteral("[info]unknown hello"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+             QStringLiteral("unknown|unknown|unknown|hello"));
 
     // Mira's conditional tokens render their block only when the matching
     // placeholder is more than the `unknown` fallback.
-    Mira::Core::setLogPattern(QStringLiteral("%{if-object}[%{object}] %{endif}%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
+    Mira::Core::setMessagePattern(QStringLiteral("%{if-object}[%{object}] %{endif}%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
              QStringLiteral("[MyObj:0#MyIns] hello"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
              QStringLiteral("hello"));
 
-    Mira::Core::setLogPattern(QStringLiteral("%{if-objectName}N=%{objectName} %{endif}%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
+    Mira::Core::setMessagePattern(QStringLiteral("%{if-objectName}N=%{objectName} %{endif}%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
              QStringLiteral("N=MyObj hello"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
              QStringLiteral("hello"));
 
-    Mira::Core::setLogPattern(QStringLiteral("%{if-objectInstanceId}ID=%{objectInstanceId} %{endif}%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
+    Mira::Core::setMessagePattern(QStringLiteral("%{if-objectInstanceId}ID=%{objectInstanceId} %{endif}%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
              QStringLiteral("ID=0 hello"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
              QStringLiteral("hello"));
 
     // `if-objectInstanceName` is false when the object has no instance name.
     Mira::Core::Object bare(QStringLiteral("Bare"), QString());
-    Mira::Core::setLogPattern(QStringLiteral("%{if-objectInstanceName}#%{objectInstanceName}%{endif}%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
+    Mira::Core::setMessagePattern(QStringLiteral("%{if-objectInstanceName}#%{objectInstanceName}%{endif}%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
              QStringLiteral("#MyInshello"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &bare),
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &bare),
              QStringLiteral("hello"));
 
-    // Mira's conditions can enclose Qt's own conditions (and vice versa).
-    const QMessageLogContext cat("f.cpp", 1, "fn", "cat");
-    Mira::Core::setLogPattern(
-                QStringLiteral("%{if-category}C=%{category}%{if-object}[%{object}]%{endif} %{endif}%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, cat, QStringLiteral("hello"), &tagged),
-             QStringLiteral("C=cat[MyObj:0#MyIns] hello"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, cat, QStringLiteral("hello"), nullptr),
-             QStringLiteral("C=cat hello"));
+    // A pattern without `%{message}` is a prefix: the message follows it.
+    Mira::Core::setMessagePattern(QStringLiteral("[%{objectName}] "));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
+             QStringLiteral("[MyObj] hello"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+             QStringLiteral("[unknown] hello"));
 
-    // A Qt-only conditional still works untouched.
-    Mira::Core::setLogPattern(QStringLiteral("%{if-category}%{category}: %{endif}%{message}"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, cat, QStringLiteral("hello"), nullptr),
-             QStringLiteral("cat: hello"));
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+    // An empty Mira pattern leaves the message alone.
+    Mira::Core::setMessagePattern(QString());
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), &tagged),
              QStringLiteral("hello"));
 
-    // Mira fills %{object*}, Qt fills the rest, and Qt's process-wide pattern is
-    // left in the placeholder-free form so foreign handlers never see Mira tokens.
-    Mira::Core::setLogPattern(QStringLiteral("[%{objectName}] %{message}"));
-    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
-             QStringLiteral("[unknown] m"));
+    // The two patterns compose: Qt's %{message} is Mira's expansion.
+    qSetMessagePattern(QStringLiteral("QT<%{message}>"));
+    Mira::Core::setMessagePattern(QStringLiteral("MIRA<%{message}>"));
+    QCOMPARE(Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("hello"), nullptr),
+             QStringLiteral("QT<MIRA<hello>>"));
 
-    // Formatting for an object hands Qt the object-specific pattern...
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m"), &tagged),
-             QStringLiteral("[MyObj] m"));
-    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
-             QStringLiteral("[MyObj] m"));
-
-    // ...and formatting without an object restores the placeholder-free form, so the
-    // object never leaks into the next (possibly foreign) message.
-    QCOMPARE(Mira::Core::formatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m"), nullptr),
-             QStringLiteral("[unknown] m"));
-    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
-             QStringLiteral("[unknown] m"));
-
-    // Qt placeholders keep Qt's own semantics.
-    Mira::Core::setLogPattern(QStringLiteral("[%{type}][%{file}][%{line}][%{function}][%{category}]"));
+    // Qt's placeholders keep Qt's own semantics inside Qt's pattern, and Mira
+    // leaves that pattern exactly as the application wrote it.
     const QMessageLogContext ctx("f.cpp", 7, "fn", "cat");
-    QCOMPARE(Mira::Core::formatLogMessage(QtWarningMsg, ctx, QStringLiteral("m"), nullptr),
+    qSetMessagePattern(QStringLiteral("[%{type}][%{file}][%{line}][%{function}][%{category}] %{message}"));
+    Mira::Core::setMessagePattern(QStringLiteral("%{message}"));
+    QCOMPARE(Mira::Core::formatMessage(QtWarningMsg, ctx, QStringLiteral("m"), nullptr),
              qFormatLogMessage(QtWarningMsg, ctx, QStringLiteral("m")));
-    QCOMPARE(Mira::Core::formatLogMessage(QtWarningMsg, QMessageLogContext(), QStringLiteral("m"), nullptr),
-             QStringLiteral("[warning][unknown][0][unknown][]"));
+    QCOMPARE(Mira::Core::formatMessage(QtWarningMsg, QMessageLogContext(), QStringLiteral("m"), nullptr),
+             QStringLiteral("[warning][unknown][0][unknown][] m"));
+    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("plain")),
+             QStringLiteral("[info][unknown][0][unknown][] plain"));
+
+    // Restore both defaults for the tests that follow.
+    qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
+    Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
 }
