@@ -2,11 +2,15 @@
 
 #include <QObject>
 
+#include "LogStateGuard.h"
+
 class Test_Log : public QObject
 {
     Q_OBJECT
+
 private slots:
     void initTestCase();
+    void init();
     void test();
     void uninstallKeepsPattern();
     void installKeepsUserPattern();
@@ -15,5 +19,8 @@ private slots:
     void attributionOutsideObject();
     void logSinkReceivesMessages();
     void patternAccessors();
-    void cleanupTestCase();
+    void cleanup();
+
+private:
+    LogStateGuard logStateGuard;
 };

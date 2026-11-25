@@ -13,13 +13,13 @@ namespace Mira {
             instanceId(Root::getInstance()->registry().generateInstanceId(this->name))
         {
             Root::getInstance()->registry().add(this);
-            miraDebug() << "Constructed";
+            mDebug() << "Constructed";
         }
 
         Object::~Object()
         {
             Root::getInstance()->registry().remove(this);
-            miraDebug() << "Destructed";
+            mDebug() << "Destructed";
         }
 
         bool Object::hasName() const

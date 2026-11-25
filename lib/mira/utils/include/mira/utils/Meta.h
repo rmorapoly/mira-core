@@ -4,7 +4,7 @@
 #include <QString>
 #include <type_traits>
 #include <typeinfo>
-#include "MiraCoreImport.h"
+#include "mira/utils/Import.h"
 
 /**
  * @def STRINGIFY(x)
@@ -20,27 +20,27 @@
  * @def __CLASS_NAME__
  * @brief Retrieves the demangled C++ class name of the current object.
  *
- * Uses RTTI (`typeid(*this).name()`) and `Mira::demangleClassName()`
+ * Uses RTTI (`typeid(*this).name()`) and `Mira::Utils::demangleClassName()`
  * to obtain a human-readable class name at runtime.
  *
  * This macro must be used **only inside a class scope**, where `this` is valid.
  */
-#define __CLASS_NAME__ Mira::demangleClassName(typeid (*this).name())
+#define __CLASS_NAME__ Mira::Utils::demangleClassName(typeid (*this).name())
 
-namespace Mira {
+namespace Mira::Utils {
 
     /**
      * @brief Converts a Qt message type (QtMsgType) to a human-readable string.
      *
      * Example:
      * @code
-     * QString s = Mira::toStr(QtWarningMsg);   // "Warning"
+     * QString s = Mira::Utils::toStr(QtWarningMsg);   // "Warning"
      * @endcode
      *
      * @param msgType The Qt message type.
      * @return A descriptive string representation.
      */
-    extern MIRA_CORE_EXPORT QString toStr(QtMsgType msgType);
+    extern MIRA_UTILS_EXPORT QString toStr(QtMsgType msgType);
 
     /**
      * @brief Converts a compiler-specific mangled name to a readable class name.
@@ -51,7 +51,7 @@ namespace Mira {
      * @param mangledName The raw name returned by `typeid().name()`.
      * @return A demangled, user-friendly type name.
      */
-    extern MIRA_CORE_EXPORT QString demangleClassName(const char* mangledName);
+    extern MIRA_UTILS_EXPORT QString demangleClassName(const char* mangledName);
 
     namespace Details {
 
@@ -112,7 +112,7 @@ namespace Mira {
      * struct Child : Mira::Core::Object {
      *     Child() MIRA_DECLARE_OBJECT {}
      * };
-     * // Mira::className<Child>() == "Child"
+     * // Mira::Utils::className<Child>() == "Child"
      * @endcode
      *
      * @tparam T The type whose name is requested.
@@ -124,4 +124,4 @@ namespace Mira {
         return Details::rawClassName<T>();
     }
 
-} // namespace Mira
+} // namespace Mira::Utils

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include "Singleton.h"
+#include "mira/utils/Singleton.h"
 #include "core/ObjectRegistry.h"
 
 namespace Mira {
@@ -14,7 +14,7 @@ namespace Mira {
      * other Mira module) and exposes the services provided by the `Mira::Core`
      * components — currently the `ObjectRegistry`.
      *
-     * This class inherits from `Singleton<Root>` and should be accessed via:
+     * This class inherits from `Mira::Utils::Singleton<Root>` and should be accessed via:
      * @code
      * Mira::Root* core = Mira::Root::getInstance();
      * @endcode
@@ -25,16 +25,16 @@ namespace Mira {
      * int count = core.registry().count("MyObject");
      * @endcode
      */
-    class MIRA_CORE_EXPORT Root : public QObject, public Singleton<Root>
+    class MIRA_CORE_EXPORT Root : public QObject, public Mira::Utils::Singleton<Root>
     {
         Q_OBJECT
-        friend class Singleton<Root>;
+        friend class Mira::Utils::Singleton<Root>;
 
         /**
          * @brief Constructs the Root instance.
          * @param parent Optional QObject parent.
          *
-         * Note: Only accessible to Singleton<Root>.
+         * Note: Only accessible to Mira::Utils::Singleton<Root>.
          */
         explicit Root(QObject* parent = nullptr);
 

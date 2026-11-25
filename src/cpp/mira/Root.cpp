@@ -2,8 +2,6 @@
 
 using namespace Mira;
 
-static auto instance = Root::getInstance();
-
 Root::Root(QObject* parent) :
     QObject(parent),
     objectRegistry(this)

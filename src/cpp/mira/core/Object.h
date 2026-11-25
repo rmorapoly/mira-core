@@ -3,7 +3,7 @@
 #include <QObject>
 #include <type_traits>
 #include "MiraCoreImport.h"
-#include "mira/Meta.h"
+#include "mira/utils/Meta.h"
 #include "mira/core/Log.h"
 
 /**
@@ -25,11 +25,11 @@
  *
  * `MIRA_DECLARE_OBJECT` expands to:
  * @code
- * : Mira::Core::Object(Mira::className<std::remove_pointer_t<decltype(this)>>())
+ * : Mira::Core::Object(Mira::Utils::className<std::remove_pointer_t<decltype(this)>>())
  * @endcode
  */
 #define MIRA_DECLARE_OBJECT \
-    : Mira::Core::Object(Mira::className<std::remove_pointer_t<decltype(this)>>())
+    : Mira::Core::Object(Mira::Utils::className<std::remove_pointer_t<decltype(this)>>())
 
 namespace Mira {
     namespace Core {
@@ -83,7 +83,7 @@ namespace Mira {
             /** @brief Optional per-instance name for user identification. */
             const QString instanceName;
 
-            /** @brief Unique incremental ID assigned for each type family. */
+            /** @brief Gap-free ID assigned for each object name; deleted IDs are reused. */
             const int instanceId;
 
             /**

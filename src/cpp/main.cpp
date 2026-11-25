@@ -1,6 +1,6 @@
 #include <QCoreApplication>
 #include <QDebug>
-#include "test/TestRegistery.h"
+#include "mira/utils/Macros.h"
 #include "mira/core/Log.h"
 
 int main(int argc, char* argv[])
@@ -10,8 +10,7 @@ int main(int argc, char* argv[])
     app.setOrganizationDomain(ORGANIZATION_DOMAIN);
 
     QTEST_SET_MAIN_SOURCE_PATH
-    int exitCode = 1;
-    exitCode &= TestRegistry::instance().runAll(argc, argv);
+    int exitCode = RUN_QT_TESTS(argc, argv);
     // exitCode &= app.exec();
 
     qInfo() << "Application exited with code" << exitCode;

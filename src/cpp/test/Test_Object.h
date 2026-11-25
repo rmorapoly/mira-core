@@ -2,14 +2,20 @@
 
 #include <QCoreApplication>
 
+#include "LogStateGuard.h"
+
 class Test_Object : public QObject
 {
     Q_OBJECT
+
 public:
     explicit Test_Object(QObject *parent = nullptr);
 
 private slots:
-    void initTestCase();
+    void init();
     void test();
-    void cleanupTestCase();
+    void cleanup();
+
+private:
+    LogStateGuard logStateGuard;
 };

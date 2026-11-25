@@ -2,8 +2,10 @@
 
 #include <QObject>
 #include <QMap>
+#include <QMutex>
+#include <QSet>
 #include "MiraCoreImport.h"
-#include "mira/Meta.h"
+#include "mira/utils/Meta.h"
 
 namespace Mira {
     namespace Core {
@@ -17,7 +19,12 @@ namespace Mira {
          * `ObjectRegistry` provides:
          * - Counting objects by name.
          * - Retrieving objects by name and instance ID.
+         * - Gap-free instance IDs: deleted IDs are reused so live objects of
+         *   one name occupy 0..count-1.
          * - Internal tracking of object lifetimes.
+         *
+         * All public operations and the registration hooks used by `Object` are
+         * mutex-guarded, so objects can be registered from different threads.
          *
          * The registry is typically managed by `Mira::Root`, and `Object`
          * is declared as a friend so that it can register/unregister itself automatically.
@@ -81,19 +88,23 @@ namespace Mira {
 
         private:
             QMap<QString, QMap<int, Object*>> objNameToObjMap; ///< Internal mapping of objects by name and instance ID.
+            QMap<QString, QSet<int>> reservedInstanceIds;      ///< IDs handed out by generateInstanceId() but not yet registered by add().
             int objectCount;                                   ///< Number of objects across all names, kept by add/remove.
+            mutable QMutex mutex;                              ///< Guards the maps and the counter.
 
             /**
              * @brief Generates a new instance ID for a given object name.
              *
-             * Never reuses an id that is still registered, so ids of live
-             * objects of one name are always unique - even after other
-             * instances were destroyed.
+             * Returns the lowest non-negative id that is neither registered nor
+             * reserved by another object being constructed. Deleted ids are
+             * therefore reused, so live objects of one name always occupy the
+             * dense range 0..count-1. The id stays reserved until @ref add
+             * consumes it, which keeps concurrent constructors from colliding.
              *
              * @param objName The name of the object.
              * @return A unique integer ID for this object instance.
              */
-            int generateInstanceId(const QString& objName) const;
+            int generateInstanceId(const QString& objName);
 
             /**
              * @brief Registers a new object into the registry.

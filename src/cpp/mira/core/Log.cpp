@@ -91,6 +91,26 @@ namespace Mira {
             /// Guards against recursion while Qt reports an invalid pattern.
             thread_local bool insideHandler = false;
 
+            class HandlerGuard
+            {
+            public:
+                HandlerGuard() noexcept :
+                    previous(insideHandler)
+                {
+                    insideHandler = true;
+                }
+
+                ~HandlerGuard() noexcept
+                {
+                    insideHandler = previous;
+                }
+
+                Q_DISABLE_COPY(HandlerGuard)
+
+            private:
+                bool previous;
+            };
+
             /// The Mira fields rendered into the pattern for one emitting object.
             /// Without a `Mira::Core::Object` every field reads `unknown`.
             struct ObjectFields
@@ -104,7 +124,7 @@ namespace Mira {
 
             ObjectFields resolveObjectFields(const QObject* obj)
             {
-                const Object* object = dynamic_cast<const Object*>(obj);
+                const Object* object = qobject_cast<const Object*>(obj);
 
                 ObjectFields fields;
                 fields.name = QStringLiteral("unknown");
@@ -278,38 +298,93 @@ namespace Mira {
                 return expanded;
             }
 
+            /// Holds the stderr stream lock for a whole line.
+            ///
+            /// Individual stdio calls are locked internally, but the
+            /// `fwrite()`/`fputc()`/`fflush()` sequence is not atomic. Without
+            /// this, concurrent log lines can interleave. The stream lock also
+            /// serialises Mira with other stdio writers using the same stream.
+            class StdErrLineLock
+            {
+            public:
+                StdErrLineLock() noexcept { lock(); }
+                ~StdErrLineLock() noexcept { unlock(); }
+
+                Q_DISABLE_COPY(StdErrLineLock)
+
+            private:
+                static QMutex& fallbackMutex() noexcept
+                {
+                    static QMutex mutex;
+                    return mutex;
+                }
+
+                static void lock() noexcept
+                {
+#if defined(WINDOWS_BUILD) || defined(_WIN32)
+                    _lock_file(stderr);
+#elif defined(UNIX_BUILD) || defined(__unix__) || defined(__APPLE__)
+                    flockfile(stderr);
+#else
+                    fallbackMutex().lock();
+#endif
+                }
+
+                static void unlock() noexcept
+                {
+#if defined(WINDOWS_BUILD) || defined(_WIN32)
+                    _unlock_file(stderr);
+#elif defined(UNIX_BUILD) || defined(__unix__) || defined(__APPLE__)
+                    funlockfile(stderr);
+#else
+                    fallbackMutex().unlock();
+#endif
+                }
+            };
+
+            void writeToStdErr(const QString& text)
+            {
+                const QByteArray out = text.toLocal8Bit();
+                // fwrite keeps embedded NUL bytes that %s would truncate.
+                StdErrLineLock lineLock;
+                fwrite(out.constData(), 1, out.size(), stderr);
+                fputc('\n', stderr);
+                fflush(stderr);
+            }
+
+            void notifyLogSink(QtMsgType type, const QMessageLogContext& context, const QString& message)
+            {
+                if (!sinkEnabled.load(std::memory_order_relaxed))
+                    return;
+
+                std::shared_ptr<const LogSink> sink;
+                {
+                    QMutexLocker locker(&sinkMutex);
+                    sink = extraSink;
+                }
+                if (!sink)
+                    return;
+
+                // LogSink is a no-throw callback: it runs inside Qt's C message
+                // callback, so an exception escaping here cannot be handled safely.
+                (*sink)(type, context, message);
+            }
+
             void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
             {
                 // Re-entrancy guard: an invalid Qt pattern makes Qt report an error,
                 // which would otherwise call us back.
                 if (insideHandler) {
-                    const QByteArray raw = msg.toLocal8Bit();
-                    fprintf(stderr, "%s\n", raw.constData());
-                    fflush(stderr);
+                    writeToStdErr(msg);
                     return;
                 }
 
-                insideHandler = true;
-
+                // Keep the handler's hot path free of try/catch. LogSink is a
+                // no-throw callback; the handler itself only formats and writes.
+                HandlerGuard guard;
                 const QString formatted = formatMessage(type, context, msg, Details::currentObject());
-                const QByteArray out = formatted.toLocal8Bit();
-                fprintf(stderr, "%s\n", out.constData());
-                fflush(stderr);
-
-                // The extra sink sees exactly what was written to the console. The
-                // shared pointer is copied under the mutex and invoked without it,
-                // so a sink can take its time without holding up other threads.
-                if (sinkEnabled.load(std::memory_order_relaxed)) {
-                    std::shared_ptr<const LogSink> sink;
-                    {
-                        QMutexLocker locker(&sinkMutex);
-                        sink = extraSink;
-                    }
-                    if (sink)
-                        (*sink)(type, context, formatted);
-                }
-
-                insideHandler = false;
+                writeToStdErr(formatted);
+                notifyLogSink(type, context, formatted);
 
                 if (type == QtFatalMsg)
                     abort();
@@ -372,8 +447,6 @@ namespace Mira {
             if (handlerInstalled)
                 return;
 
-            qInfo() << "installed";
-
             // Neither Mira's pattern nor Qt's process-wide pattern is touched:
             // both belong to the application, and neither install nor uninstall
             // ever changes them.
@@ -393,7 +466,6 @@ namespace Mira {
             if (!handlerInstalled)
                 return;
 
-            qInfo() << "uninstalled";
             qInstallMessageHandler(previousHandler);
             previousHandler = nullptr;
             handlerInstalled = false;

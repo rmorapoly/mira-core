@@ -1,70 +1,138 @@
 #include "Test_ObjectRegistry.h"
 #include "mira/Root.h"
 #include "mira/core/Object.h"
-#include "TestRegistery.h"
+#include "mira/utils/Macros.h"
+
+#include <QThread>
+#include <QVector>
 
 REGISTER_QT_TEST(Test_ObjectRegistry)
 
 using namespace Mira;
 using namespace Mira::Core;
 
+namespace {
+
+    class RegistrationWorker : public QThread
+    {
+    public:
+        explicit RegistrationWorker(QObject* parent = nullptr) :
+            QThread(parent)
+        {}
+
+    protected:
+        void run() override
+        {
+            for (int i = 0; i < 50; ++i) {
+                Object object(QStringLiteral("Threaded"));
+                Q_UNUSED(object)
+            }
+        }
+    };
+
+} // namespace
+
 Test_ObjectRegistry::Test_ObjectRegistry(QObject *parent)
     : QObject{parent}
 {}
 
+void Test_ObjectRegistry::init()
+{
+    logStateGuard.reset();
+}
+
 void Test_ObjectRegistry::test()
 {
-    // The registry is owned by the Core singleton
     auto& registry = Root::getInstance()->registry();
-
-    // Initially empty
-    QCOMPARE(registry.count(), 0);
-    QCOMPARE(registry.countAll(), 0);
+    const int initialAll = registry.countAll();
+    const int initialDefault = registry.count();
 
     {
-        // Create a few objects (they auto-register)
         Object obj0, obj1;
-
-        // After creation, registry should contain entries
-        QCOMPARE(registry.count(), 2);
-        QCOMPARE(registry.countAll(), 2);
-
-        // Get should return the correct pointers
-        QCOMPARE(registry.get(0), &obj0);
-        QCOMPARE(registry.get(1), &obj1);
-        QCOMPARE(obj0 == obj1, false);
+        QCOMPARE(registry.count(), initialDefault + 2);
+        QCOMPARE(registry.countAll(), initialAll + 2);
+        QCOMPARE(registry.get(obj0.instanceId), &obj0);
+        QCOMPARE(registry.get(obj1.instanceId), &obj1);
+        QVERIFY(obj0 != obj1);
     }
 
-    // After destruction (end of scope), registry should be empty
-    QCOMPARE(registry.count(), 0);
-    QCOMPARE(registry.countAll(), 0);
+    QCOMPARE(registry.count(), initialDefault);
+    QCOMPARE(registry.countAll(), initialAll);
 
-    // Add dynamically allocated object
+    const int initialNamed = registry.count(QStringLiteral("Obj"));
+    const int initialOther = registry.count(QStringLiteral("Other"));
+
     Object *obj2 = new Object("Obj");
     Object *obj3 = new Object("Obj");
     Object *other = new Object("Other");
-    QCOMPARE(registry.count("Obj"), 2);
-    QCOMPARE(registry.count("Other"), 1);
-    QCOMPARE(registry.countAll(), 3);
+    const int obj2Id = obj2->instanceId;
+    const int obj3Id = obj3->instanceId;
+    QCOMPARE(registry.count("Obj"), initialNamed + 2);
+    QCOMPARE(registry.count("Other"), initialOther + 1);
+    QCOMPARE(registry.countAll(), initialAll + 3);
     QCOMPARE(registry.get("Obj"), obj2);
-    QCOMPARE(*registry.get("Obj"), *obj2);
-    QCOMPARE(*registry.get("Obj", 1), *obj3);
+    QCOMPARE(registry.get("Obj", obj2Id), obj2);
+    QCOMPARE(registry.get("Obj", obj3Id), obj3);
 
-    // Removing an instance must not hand its id to a later object of the same
-    // name while another object still holds it, and countAll() sees every name.
+    // Deleting an object releases its id for reuse and keeps the live range
+    // gap-free from 0.
     delete obj2;
-    QCOMPARE(registry.count("Obj"), 1);
-    QCOMPARE(registry.countAll(), 2);
+    QCOMPARE(registry.count("Obj"), initialNamed + 1);
+    QCOMPARE(registry.countAll(), initialAll + 2);
+    QCOMPARE(registry.get("Obj", obj2Id), nullptr);
+    QCOMPARE(registry.get("Obj", obj3Id), obj3);
 
     Object *obj4 = new Object("Obj");
-    QCOMPARE(obj4->instanceId, 2);
-    QCOMPARE(registry.get("Obj", 2), obj4);
-    QCOMPARE(registry.countAll(), 3);
+    QCOMPARE(obj4->instanceId, obj2Id);
+    QVERIFY(obj4->instanceId != obj3Id);
+    QCOMPARE(registry.get("Obj", obj4->instanceId), obj4);
+    QCOMPARE(registry.countAll(), initialAll + 3);
 
+    const int releasedId = obj4->instanceId;
     delete obj4;
+    Object *obj5 = new Object("Obj");
+    QCOMPARE(obj5->instanceId, releasedId);
+    QCOMPARE(registry.get("Obj", obj5->instanceId), obj5);
+
+    for (int id = 0; id < registry.count("Obj"); ++id)
+        QVERIFY(registry.get("Obj", id) != nullptr);
+    QVERIFY(registry.get("Obj", registry.count("Obj")) == nullptr);
+
+    delete obj5;
     delete obj3;
     delete other;
-    QCOMPARE(registry.count("Obj"), 0);
-    QCOMPARE(registry.count("Other"), 0);
-    QCOMPARE(registry.countAll(), 0);
+    QCOMPARE(registry.count("Obj"), initialNamed);
+    QCOMPARE(registry.count("Other"), initialOther);
+    QCOMPARE(registry.countAll(), initialAll);
+}
+
+void Test_ObjectRegistry::concurrentRegistration()
+{
+    auto& registry = Root::getInstance()->registry();
+    const int initialAll = registry.countAll();
+    const int initialNamed = registry.count(QStringLiteral("Threaded"));
+
+    QtMessageHandler previous = qInstallMessageHandler(
+                                    [](QtMsgType, const QMessageLogContext&, const QString&) {});
+
+    QVector<RegistrationWorker*> workers;
+    for (int i = 0; i < 4; ++i) {
+        auto* worker = new RegistrationWorker;
+        workers.append(worker);
+        worker->start();
+    }
+    for (RegistrationWorker* worker : workers) {
+        worker->wait();
+        delete worker;
+    }
+
+    qInstallMessageHandler(previous);
+
+    QCOMPARE(registry.countAll(), initialAll);
+    QCOMPARE(registry.count("Threaded"), initialNamed);
+}
+
+void Test_ObjectRegistry::cleanup()
+{
+    logStateGuard.reset();
 }

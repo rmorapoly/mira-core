@@ -1,5 +1,5 @@
 #include "Test_Log.h"
-#include "TestRegistery.h"
+#include "mira/utils/Macros.h"
 #include "mira/core/Log.h"
 #include "mira/core/Object.h"
 
@@ -11,50 +11,50 @@ REGISTER_QT_TEST(Test_Log)
 
 namespace {
 
-QStringList* capturedMessages = nullptr;
-QList<QtMsgType>* capturedTypes = nullptr;
-QList<const QObject*>* capturedObjects = nullptr;
+    QStringList* capturedMessages = nullptr;
+    QList<QtMsgType>* capturedTypes = nullptr;
+    QList<const QObject*>* capturedObjects = nullptr;
 
-void logFromFreeFunction()
-{
-    miraInfo() << "from free function";
-}
-
-void captureMessage(QtMsgType type, const QMessageLogContext&, const QString& msg)
-{
-    if (capturedMessages)
-        *capturedMessages << msg;
-    if (capturedTypes)
-        *capturedTypes << type;
-    if (capturedObjects)
-        *capturedObjects << Mira::Core::currentLogObject();
-}
-
-/// Installs a message handler for the lifetime of the object and restores it
-/// afterwards, even if a QTest assertion returns early.
-struct MessageCapture
-{
-    QStringList messages;
-    QList<QtMsgType> types;
-    QList<const QObject*> objects;
-    QtMessageHandler previous = nullptr;
-
-    MessageCapture()
+    void logFromFreeFunction()
     {
-        capturedMessages = &messages;
-        capturedTypes = &types;
-        capturedObjects = &objects;
-        previous = qInstallMessageHandler(captureMessage);
+        miraInfo() << "from free function";
     }
 
-    ~MessageCapture()
+    void captureMessage(QtMsgType type, const QMessageLogContext&, const QString& msg)
     {
-        qInstallMessageHandler(previous);
-        capturedMessages = nullptr;
-        capturedTypes = nullptr;
-        capturedObjects = nullptr;
+        if (capturedMessages)
+            *capturedMessages << msg;
+        if (capturedTypes)
+            *capturedTypes << type;
+        if (capturedObjects)
+            *capturedObjects << Mira::Core::currentLogObject();
     }
-};
+
+    /// Installs a message handler for the lifetime of the object and restores it
+    /// afterwards, even if a QTest assertion returns early.
+    struct MessageCapture
+    {
+        QStringList messages;
+        QList<QtMsgType> types;
+        QList<const QObject*> objects;
+        QtMessageHandler previous = nullptr;
+
+        MessageCapture()
+        {
+            capturedMessages = &messages;
+            capturedTypes = &types;
+            capturedObjects = &objects;
+            previous = qInstallMessageHandler(captureMessage);
+        }
+
+        ~MessageCapture()
+        {
+            qInstallMessageHandler(previous);
+            capturedMessages = nullptr;
+            capturedTypes = nullptr;
+            capturedObjects = nullptr;
+        }
+    };
 
 } // namespace
 
@@ -63,6 +63,11 @@ void Test_Log::initTestCase()
     // Nothing has set a pattern yet: messagePattern() reports the default. Only
     // setMessagePattern() ever changes it - install and uninstall never do.
     QCOMPARE(Mira::Core::messagePattern(), Mira::Core::defaultMessagePattern());
+}
+
+void Test_Log::init()
+{
+    logStateGuard.reset();
 }
 
 void Test_Log::uninstallKeepsPattern()
@@ -127,9 +132,9 @@ void Test_Log::messageIndexIncrements()
     Mira::Core::setMessagePattern(QStringLiteral("%{messageIndex}|%{message}"));
 
     const QString first = Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(),
-                                                       QStringLiteral("one"), nullptr);
+                                                    QStringLiteral("one"), nullptr);
     const QString second = Mira::Core::formatMessage(QtInfoMsg, QMessageLogContext(),
-                                                        QStringLiteral("two"), nullptr);
+                                                     QStringLiteral("two"), nullptr);
 
     QVERIFY(first.endsWith(QStringLiteral("|one")));
     QVERIFY(second.endsWith(QStringLiteral("|two")));
@@ -229,20 +234,19 @@ void Test_Log::patternAccessors()
     QCOMPARE(Mira::Core::qtDefaultMessagePattern(),
              QStringLiteral("%{if-category}%{category}: %{endif}%{message}"));
 
+    qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
+    QCOMPARE(qFormatLogMessage(QtInfoMsg, QMessageLogContext(), QStringLiteral("m")),
+             QStringLiteral("m"));
+    const QMessageLogContext categorized("f.cpp", 1, "fn", "cat");
+    QCOMPARE(qFormatLogMessage(QtInfoMsg, categorized, QStringLiteral("m")),
+             QStringLiteral("cat: m"));
+
     // Mira's default holds Mira's part only: Qt's tokens are Qt's to render.
     QVERIFY(!Mira::Core::defaultMessagePattern().contains(QStringLiteral("%{time")));
     QVERIFY(!Mira::Core::defaultMessagePattern().contains(QStringLiteral("%{type}")));
 
     Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
     QCOMPARE(Mira::Core::messagePattern(), Mira::Core::defaultMessagePattern());
-}
-
-void Test_Log::cleanupTestCase()
-{
-    // Restore both defaults and the handler so later tests and the app keep them.
-    Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
-    qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
-    Mira::Core::installMessageHandler();
 }
 
 void Test_Log::test()
@@ -391,4 +395,9 @@ void Test_Log::test()
     // Restore both defaults for the tests that follow.
     qSetMessagePattern(Mira::Core::qtDefaultMessagePattern());
     Mira::Core::setMessagePattern(Mira::Core::defaultMessagePattern());
+}
+
+void Test_Log::cleanup()
+{
+    logStateGuard.reset();
 }

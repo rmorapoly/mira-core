@@ -74,8 +74,9 @@ namespace Mira {
          *  - `%{object}`             the composed `name:instanceId`, plus
          *                            `#instanceName` when the object has one
          *  - `%{message}`            the message text
-         *  - `%{messageIndex}`       1-based index of the message, strictly
-         *                            increasing and never repeated
+         *  - `%{messageIndex}`       1-based index of the message, never repeated.
+         *                            Values are allocated in formatting order;
+         *                            concurrent threads may write them out of order
          *
          * When no `Mira::Core::Object` is emitting (plain `qDebug()`, or a
          * `QObject` that is not a Mira `Object`), the object placeholders expand to
@@ -148,10 +149,13 @@ namespace Mira {
          * @endcode
          *
          * The sink is called from the logging thread after the console write,
-         * while the object context of the message is still in effect. It must
-         * not log through Mira itself (such messages fall back to the raw
-         * re-entrancy path) and must not call back into Mira's handler/pattern
-         * control functions. Pass `nullptr` to remove the sink.
+         * while the object context of the message is still in effect. That
+         * context must not be retained: the object may be destroyed immediately
+         * after the call. It must not log through Mira itself (such messages
+         * fall back to the raw re-entrancy path) and must not call back into
+         * Mira's handler/pattern control functions. A sink must not throw: it
+         * is called from Qt's C message callback, where an escaping exception
+         * cannot be handled safely. Pass `nullptr` to remove the sink.
          *
          * The sink is only consulted while Mira's handler is installed
          * (@ref installMessageHandler) and is kept across install/uninstall cycles.
@@ -205,7 +209,8 @@ namespace Mira {
          * Mira's pattern is expanded from @p object (see @ref setMessagePattern)
          * and the result is handed to Qt as the message text, so Qt's process-wide
          * pattern renders the line around it. One call is one printed message and
-         * takes the next `%{messageIndex}`.
+         * takes the next `%{messageIndex}`. The index reflects allocation order,
+         * not necessarily the order in which concurrent threads write lines.
          *
          * @param type    The Qt message type.
          * @param context The Qt message log context (file/line/function/category).

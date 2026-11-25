@@ -18,12 +18,16 @@ live under `Mira::Core`.
   `%{object}`) and a per-message sequence number (`%{messageIndex}`), set with
   `Mira::Core::setMessagePattern()`.
 - **Extra log sinks**: every message can additionally go to your own handler —
-  console and sink at the same time (see `Mira::Core::setLogSink()`).
+  console and sink at the same time (see `Mira::Core::setLogSink()`). Sinks must
+  not throw.
 - **Object registration**: automatically register and track objects using
   `Mira::Core::ObjectRegistry`.
-- **Singleton entry point**: access everything through `Mira::Root`.
+- **Singleton entry point**: access everything through `Mira::Root`, which uses
+  the thread-safe `Mira::Utils::Singleton<T>` from the vendored utils library.
 - **Convenient macros**: quick logging via `miraInfo()`, `miraDebug()`, etc.
-- **RTTI-free class names** via `Mira::className<T>()` and `__CLASS_NAME__`.
+- **Compile-time class names** via `Mira::Utils::className<T>()`;
+  `__CLASS_NAME__` uses RTTI to name the current object. Both come from the
+  vendored `mira-utils` library.
 
 ---
 
@@ -101,7 +105,8 @@ from two independent patterns:
 - **Mira's pattern** — `Mira::Core::setMessagePattern()` — supplies the Mira
   placeholders (`%{object}`, `%{objectName}`, `%{objectInstanceId}`,
   `%{objectInstanceName}`), the per-message row count `%{messageIndex}`, and
-  the message itself.
+  the message itself. `%{messageIndex}` is allocated in formatting order; with
+  concurrent writers, printed lines may not appear in numeric order.
 
 Mira hands its expansion to Qt as the message text, so a line is
 `{Qt pattern}{Mira pattern} message`. A pattern that leaves `%{message}` out is
@@ -131,10 +136,13 @@ handler — e.g. to mirror them into a file, a widget or a network stream:
 ```cpp
 Mira::Core::setLogSink([](QtMsgType, const QMessageLogContext&,
                           const QString& message) {
-    myLogFile.write(message + QLatin1Char('\n'));
+    myLogFile.write((message + QLatin1Char('\n')).toUtf8());
 });
 // later: Mira::Core::setLogSink(nullptr);
 ```
+
+A sink runs inside Qt's C++ message callback and must not throw; the logging
+path deliberately has no `try/catch`.
 
 The pattern is applied in two ways:
 
@@ -189,3 +197,22 @@ int total = Mira::Root::getInstance()->registry().count("MyObject");  // one nam
 int all = Mira::Root::getInstance()->registry().countAll();             // every object
 auto retrieved = Mira::Root::getInstance()->registry().get("MyObject");
 ```
+
+---
+
+## Shared utilities
+
+`Meta`, `Singleton`, the stringification macros, and the Qt test registry are
+owned by the `../utils` module. Core uses the vendored snapshot in
+`lib/mira/utils/` (`libMiraUtils`), wired in by `lib/lib.pri`; there are no
+duplicate core implementations of those utilities.
+
+## Documentation
+
+- [Logging](doc/logging.md) — object attribution and its lookup rules.
+- [Release notes](doc/release-notes.md) — behaviour changes to be aware of when
+  upgrading.
+
+The project follows the shared Mira guidelines known as **Mira Software
+Guidelines (MSG)**, including clean-code rules, name conventions, project layout,
+and the Qt Test strategy.
