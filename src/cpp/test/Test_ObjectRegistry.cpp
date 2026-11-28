@@ -1,5 +1,5 @@
 #include "Test_ObjectRegistry.h"
-#include "mira/Root.h"
+#include "mira/core/Root.h"
 #include "mira/core/Object.h"
 #include "mira/utils/Macros.h"
 
@@ -8,7 +8,6 @@
 
 REGISTER_QT_TEST(Test_ObjectRegistry)
 
-using namespace Mira;
 using namespace Mira::Core;
 
 namespace {

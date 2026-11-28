@@ -26,12 +26,12 @@ namespace Mira {
          * All public operations and the registration hooks used by `Object` are
          * mutex-guarded, so objects can be registered from different threads.
          *
-         * The registry is typically managed by `Mira::Root`, and `Object`
+         * The registry is typically managed by `Mira::Core::Root`, and `Object`
          * is declared as a friend so that it can register/unregister itself automatically.
          *
          * ### Example:
          * @code
-         * auto& registry = Mira::Root::getInstance()->registry();
+         * auto& registry = Mira::Core::Root::getInstance()->registry();
          * Object* obj = new Object("MyObject");
          * int total = registry.count("MyObject");   // instances of one name
          * int all = registry.countAll();            // every registered object

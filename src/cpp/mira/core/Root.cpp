@@ -1,13 +1,13 @@
 #include "Root.h"
 
-using namespace Mira;
+using namespace Mira::Core;
 
 Root::Root(QObject* parent) :
     QObject(parent),
     objectRegistry(this)
 {}
 
-Core::ObjectRegistry& Root::registry()
+ObjectRegistry& Root::registry()
 {
     return objectRegistry;
 }

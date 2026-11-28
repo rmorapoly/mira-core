@@ -1,5 +1,5 @@
 #include "Object.h"
-#include "mira/Root.h"
+#include "Root.h"
 
 namespace Mira {
     namespace Core {

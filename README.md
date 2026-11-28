@@ -3,8 +3,7 @@
 Mira is a lightweight C++/Qt framework for structured message handling, object registration, and debugging/logging. It provides centralized management of messages, object lifetimes, and logging sinks.
 
 This repository is the `core` module of the Mira family. Its entry point,
-`Mira::Root`, lives in the root `Mira` namespace, while the reusable components
-live under `Mira::Core`.
+`Mira::Core::Root`, and all reusable components live under `Mira::Core`.
 
 ---
 
@@ -22,8 +21,8 @@ live under `Mira::Core`.
   not throw.
 - **Object registration**: automatically register and track objects using
   `Mira::Core::ObjectRegistry`.
-- **Singleton entry point**: access everything through `Mira::Root`, which uses
-  the thread-safe `Mira::Utils::Singleton<T>` from the vendored utils library.
+- **Singleton entry point**: access everything through `Mira::Core::Root`, which
+  uses the thread-safe `Mira::Utils::Singleton<T>` from the vendored utils library.
 - **Convenient macros**: quick logging via `miraInfo()`, `miraDebug()`, etc.
 - **Compile-time class names** via `Mira::Utils::className<T>()`;
   `__CLASS_NAME__` uses RTTI to name the current object. Both come from the
@@ -38,9 +37,9 @@ live under `Mira::Core`.
 Access the central core instance:
 
 ```cpp
-#include "mira/Root.h"
+#include "mira/core/Root.h"
 
-auto* root = Mira::Root::getInstance();
+auto* root = Mira::Core::Root::getInstance();
 auto& registry = root->registry();
 ```
 
@@ -193,9 +192,9 @@ public:
 
 MyObject obj;
 
-int total = Mira::Root::getInstance()->registry().count("MyObject");  // one name
-int all = Mira::Root::getInstance()->registry().countAll();             // every object
-auto retrieved = Mira::Root::getInstance()->registry().get("MyObject");
+int total = Mira::Core::Root::getInstance()->registry().count("MyObject");  // one name
+int all = Mira::Core::Root::getInstance()->registry().countAll();             // every object
+auto retrieved = Mira::Core::Root::getInstance()->registry().get("MyObject");
 ```
 
 ---
