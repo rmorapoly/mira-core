@@ -1,16 +1,18 @@
-#include <QDebug>
-#include "TestRegistery.h"
 #include <QCoreApplication>
+#include <QDebug>
+#include "mira/utils/Macros.h"
+#include "mira/core/Log.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    qInfo() << "Application started";
     QCoreApplication app(argc, argv);
     app.setOrganizationName(ORGANIZATION_NAME);
     app.setOrganizationDomain(ORGANIZATION_DOMAIN);
+
     QTEST_SET_MAIN_SOURCE_PATH
-    auto exitCode = TestRegistry::instance().runAll(argc, argv);
-    //exitCode &= app.exec();
+    int exitCode = RUN_QT_TESTS(argc, argv);
+    // exitCode &= app.exec();
+
     qInfo() << "Application exited with code" << exitCode;
     return exitCode;
 }
